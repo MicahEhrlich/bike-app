@@ -62,6 +62,7 @@ import {
   type PointRoutePlanningStage,
 } from './PointRoutePlanner'
 import { RoutesPanel } from './RoutesPanel'
+import { loadSavedRoutes, persistSavedRoutes, type SavedBikeRoute } from '../utils/savedRoutes'
 
 interface BikeMapProps {
   data: BikePathCollection
@@ -210,6 +211,8 @@ export function BikeMap({
 }: BikeMapProps) {
   const { t, i18n } = useTranslation()
   const language = getSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
+  const [savedRoutes, setSavedRoutes] = useState(loadSavedRoutes)
+  const [storageErrorKey, setStorageErrorKey] = useState<string | null>(null)
   const [activeTypes, setActiveTypes] = useState<InfrastructureType[]>(
     ALL_INFRASTRUCTURE_TYPES,
   )
@@ -523,6 +526,53 @@ export function BikeMap({
     }
     setDragHandleRevision((revision) => revision + 1)
   }
+  const savePointRoute = (name: string) => {
+    if (!pointToPointRoute) return
+    const entry: SavedBikeRoute = {
+      id: crypto.randomUUID(),
+      name: name.trim() || t('pointRoute.yourRoute'),
+      savedAt: new Date().toISOString(),
+      route: pointToPointRoute,
+      viaCoordinate: routeViaPoint?.coordinate ?? null,
+    }
+    const updated = [entry, ...savedRoutes]
+    try {
+      persistSavedRoutes(updated)
+      setSavedRoutes(updated)
+      setStorageErrorKey(null)
+    } catch {
+      setStorageErrorKey('pointRoute.saveFailed')
+    }
+  }
+  const deleteSavedRoute = (id: string) => {
+    const updated = savedRoutes.filter((route) => route.id !== id)
+    try {
+      persistSavedRoutes(updated)
+      setSavedRoutes(updated)
+      setStorageErrorKey(null)
+    } catch {
+      setStorageErrorKey('pointRoute.saveFailed')
+    }
+  }
+  const openSavedRoute = (saved: SavedBikeRoute) => {
+    const start = snapToBikeNetwork(bikeNetwork, saved.route.coordinates[0], 10)
+    const end = snapToBikeNetwork(bikeNetwork, saved.route.coordinates.at(-1)!, 10)
+    const via = saved.viaCoordinate ? snapToBikeNetwork(bikeNetwork, saved.viaCoordinate, 10) : null
+    if (!start || !end || (saved.viaCoordinate && !via)) {
+      setStorageErrorKey('pointRoute.savedUnavailable')
+      return
+    }
+    onClearRoute()
+    previewRouteThroughCoordinate(null)
+    setPlannedStart(start)
+    setPlannedEnd(end)
+    setRouteViaPoint(via)
+    setPointToPointRoute(saved.route)
+    setPointRouteErrorKey(null)
+    setStorageErrorKey(null)
+    setPlanningStage('complete')
+    setDragHandleRevision((revision) => revision + 1)
+  }
   const changePointRouteDestination = () => {
     previewRouteThroughCoordinate(null)
     setPlannedEnd(null)
@@ -826,6 +876,14 @@ export function BikeMap({
         errorKey={pointRouteErrorKey}
         hasViaPoint={routeViaPoint !== null}
         stage={planningStage}
+        savedRoutes={savedRoutes}
+        storageErrorKey={storageErrorKey}
+        isSaved={!!pointToPointRoute && savedRoutes.some((saved) =>
+          JSON.stringify(saved.route.coordinates) === JSON.stringify(pointToPointRoute.coordinates))}
+        isPreviewing={dragRoutePreview !== null}
+        onSave={savePointRoute}
+        onOpenSaved={openSavedRoute}
+        onDeleteSaved={deleteSavedRoute}
         onActivate={activatePointRoutePlanning}
         onCancel={cancelPointRoutePlanning}
         onRemoveViaPoint={removeRouteViaPoint}
