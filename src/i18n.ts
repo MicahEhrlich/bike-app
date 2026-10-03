@@ -188,6 +188,7 @@ const resources = {
         meters: '{{value}} m',
       },
       onboarding: {
+        bicycleIllustration: 'An 8-bit light blue bicycle with a front basket',
         progress: 'Step {{current}} of {{total}}',
         nameTitle: 'What should we call you?',
         nameDescription:
@@ -411,6 +412,7 @@ const resources = {
         meters: '{{value}} מ׳',
       },
       onboarding: {
+        bicycleIllustration: 'אופניים בצבע תכלת עם סל קדמי בסגנון 8 ביט',
         progress: 'שלב {{current}} מתוך {{total}}',
         nameTitle: 'איך לפנות אליך?',
         nameDescription:

@@ -1,0 +1,8 @@
+Use case: stylized-concept
+Asset type: onboarding wizard illustration for a bicycle route app
+Primary request: a light blue bicycle with a front wicker basket, in authentic 8-bit pixel art style.
+Scene/backdrop: genuinely transparent background.
+Subject: one complete side-view city bicycle facing right, pastel light blue frame, two dark tires with pale spokes, brown saddle, brown wicker basket attached to the front handlebars. No contents in basket.
+Style/medium: charming classic 8-bit game sprite; crisp visible square pixels, limited palette, stepped edges, no smooth outlines or gradients.
+Composition/framing: landscape, centered full bicycle, basket clearly visible, modest transparent padding around the bicycle.
+Constraints: no people, no text, no watermark, no scenery, no cropped wheels.

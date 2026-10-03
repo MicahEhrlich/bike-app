@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   AlertTriangle,
-  Bike,
   Languages,
   Moon,
   RefreshCw,
@@ -9,6 +8,7 @@ import {
   Sun,
 } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
+import { BasketBikeLogo } from './components/BasketBikeLogo'
 import { BikeMap } from './components/BikeMap'
 import { OnboardingWizard } from './components/OnboardingWizard'
 import type { BikeRoute } from './data/routes'
@@ -179,7 +179,7 @@ function App() {
         <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-900 text-white shadow-sm">
-              <Bike aria-hidden="true" size={22} strokeWidth={2.25} />
+              <BasketBikeLogo size={30} />
             </span>
             <div className="min-w-0 text-start">
               <h1 className="truncate text-lg font-extrabold tracking-[-0.035em] text-slate-950 dark:text-white sm:text-xl">

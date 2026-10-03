@@ -1,5 +1,6 @@
+import { BasketBikeLogo } from './BasketBikeLogo'
 import { useEffect, useRef, useState } from 'react'
-import { Bike, Gauge, Languages, MapPinned, Route, UserRound } from 'lucide-react'
+import { Gauge, Languages, MapPinned, Route, UserRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { RouteCity, RouteDifficulty } from '../data/routes'
 import { getSupportedLanguage } from '../utils/localization'
@@ -94,7 +95,7 @@ export function OnboardingWizard({
         <div className="border-b border-stone-200 px-6 pb-5 pt-6 dark:border-slate-800 sm:px-8">
           <div className="flex items-center justify-between gap-4">
             <span className="flex size-11 items-center justify-center rounded-2xl bg-emerald-800 text-white shadow-sm">
-              <Bike aria-hidden="true" size={23} />
+              <BasketBikeLogo size={32} />
             </span>
             <div className="flex items-center gap-2">
               <p className="hidden text-xs font-extrabold uppercase tracking-[0.12em] text-emerald-800 dark:text-emerald-400 sm:block">
@@ -127,6 +128,15 @@ export function OnboardingWizard({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-7 sm:px-8">
+          <div className="mb-6 flex justify-center rounded-2xl bg-sky-50 px-4 py-3 dark:bg-sky-950/40">
+            <img
+              src="/images/onboarding-basket-bike.png"
+              alt={t('onboarding.bicycleIllustration')}
+              width={320}
+              height={180}
+              className="h-36 w-full max-w-80 object-contain [image-rendering:pixelated] sm:h-44"
+            />
+          </div>
           {step === 0 && (
             <WizardStep
               icon={<UserRound size={22} />}
