@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Feature, Geometry, Point } from 'geojson'
 import type { TFunction } from 'i18next'
+import { LoaderCircle, LocateFixed } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   circleMarker,
@@ -10,6 +11,7 @@ import {
   type PathOptions,
 } from 'leaflet'
 import {
+  Circle,
   CircleMarker,
   GeoJSON,
   MapContainer,
@@ -58,6 +60,14 @@ interface BikeMapProps {
 }
 
 const MAP_CENTER: [number, number] = [32.078, 34.781]
+
+interface CurrentLocation {
+  latitude: number
+  longitude: number
+  accuracyMeters: number
+}
+
+type LocationStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 function getPathStyle(
   feature?: Feature<Geometry, BikePathProperties>,
@@ -158,6 +168,12 @@ export function BikeMap({
   const [activeTypes, setActiveTypes] = useState<InfrastructureType[]>(
     ALL_INFRASTRUCTURE_TYPES,
   )
+  const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(
+    null,
+  )
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle')
+  const [locationErrorKey, setLocationErrorKey] = useState<string | null>(null)
+  const [locationFocusRequest, setLocationFocusRequest] = useState(0)
   const routableInfrastructureTypes = useMemo(
     () =>
       activeTypes.filter(
@@ -235,6 +251,40 @@ export function BikeMap({
     },
     [filteredRoutes],
   )
+  const requestCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationStatus('error')
+      setLocationErrorKey('map.locationNotSupported')
+      return
+    }
+
+    setLocationStatus('loading')
+    setLocationErrorKey(null)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCurrentLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracyMeters: position.coords.accuracy,
+        })
+        setLocationStatus('ready')
+        setLocationFocusRequest((request) => request + 1)
+      },
+      (error) => {
+        const errorKey =
+          error.code === error.PERMISSION_DENIED
+            ? 'map.locationPermissionDenied'
+            : error.code === error.POSITION_UNAVAILABLE
+              ? 'map.locationUnavailable'
+              : error.code === error.TIMEOUT
+                ? 'map.locationTimeout'
+                : 'map.locationError'
+        setLocationStatus('error')
+        setLocationErrorKey(errorKey)
+      },
+      { enableHighAccuracy: true, maximumAge: 30_000, timeout: 10_000 },
+    )
+  }
 
   useEffect(() => {
     if (
@@ -342,12 +392,86 @@ export function BikeMap({
             )}
           </>
         )}
+        {currentLocation && (
+          <>
+            <Circle
+              center={[currentLocation.latitude, currentLocation.longitude]}
+              interactive={false}
+              pathOptions={{
+                color: '#0284c7',
+                fillColor: '#38bdf8',
+                fillOpacity: 0.12,
+                opacity: 0.35,
+                weight: 1,
+              }}
+              radius={currentLocation.accuracyMeters}
+            />
+            <CircleMarker
+              center={[currentLocation.latitude, currentLocation.longitude]}
+              pathOptions={{
+                color: '#ffffff',
+                fillColor: '#0284c7',
+                fillOpacity: 1,
+                weight: 3,
+              }}
+              radius={8}
+            >
+              <Tooltip direction="top">
+                <strong>{t('map.yourLocation')}</strong>
+                <br />
+                {t('map.locationAccuracy', {
+                  value: formatNumber(
+                    Math.round(currentLocation.accuracyMeters),
+                    language,
+                    0,
+                  ),
+                })}
+              </Tooltip>
+            </CircleMarker>
+          </>
+        )}
         <MapViewportController selectedRoute={selectedRoute} />
+        <CurrentLocationViewportController
+          focusRequest={locationFocusRequest}
+          location={currentLocation}
+        />
         <ViewportRouteTracker
           routes={filteredRoutes}
           onVisibleRoutesChange={updateVisibleRoutes}
         />
       </MapContainer>
+
+      <button
+        aria-label={t(
+          locationStatus === 'loading' ? 'map.locating' : 'map.locateMe',
+        )}
+        className="absolute left-14 top-3 z-[1200] inline-flex h-10 items-center gap-2 rounded-xl border border-white/70 bg-white/95 px-3 text-sm font-extrabold text-slate-700 shadow-lg backdrop-blur transition hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-70 dark:border-slate-700/80 dark:bg-slate-900/95 dark:text-slate-200 dark:hover:text-emerald-300"
+        disabled={locationStatus === 'loading'}
+        title={t(locationStatus === 'loading' ? 'map.locating' : 'map.locateMe')}
+        type="button"
+        onClick={requestCurrentLocation}
+      >
+        {locationStatus === 'loading' ? (
+          <LoaderCircle aria-hidden="true" className="animate-spin" size={18} />
+        ) : (
+          <LocateFixed aria-hidden="true" size={18} />
+        )}
+        <span className="hidden sm:inline">
+          {t(locationStatus === 'loading' ? 'map.locating' : 'map.locateMe')}
+        </span>
+      </button>
+
+      {locationErrorKey && (
+        <p
+          className="absolute left-28 top-3 z-[1200] max-w-[calc(100%-8rem)] rounded-xl border border-rose-200 bg-white/95 px-3 py-2 text-xs font-bold leading-5 text-rose-700 shadow-lg backdrop-blur dark:border-rose-900 dark:bg-slate-900/95 dark:text-rose-300 sm:left-48"
+          role="alert"
+        >
+          {t(locationErrorKey)}
+        </p>
+      )}
+      <p aria-live="polite" className="sr-only">
+        {locationStatus === 'ready' ? t('map.locationFound') : ''}
+      </p>
 
       <InfrastructureFilters
         activeTypes={activeTypes}
@@ -370,6 +494,25 @@ export function BikeMap({
       />
     </section>
   )
+}
+
+function CurrentLocationViewportController({
+  location,
+  focusRequest,
+}: {
+  location: CurrentLocation | null
+  focusRequest: number
+}) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!location || focusRequest === 0) return
+    map.setView([location.latitude, location.longitude], Math.max(map.getZoom(), 16), {
+      animate: true,
+    })
+  }, [focusRequest, location, map])
+
+  return null
 }
 
 function MapViewportController({
