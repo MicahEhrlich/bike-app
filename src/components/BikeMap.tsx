@@ -34,7 +34,6 @@ import {
 } from '../utils/localization'
 import type { SupportedLanguage } from '../i18n'
 import {
-  DEFAULT_ROUTE_FILTERS,
   filterRoutes,
   type RouteFiltersState,
 } from '../utils/routeFilters'
@@ -51,8 +50,10 @@ interface BikeMapProps {
   data: BikePathCollection
   selectedRoute: BikeRoute | null
   isRoutesPanelCollapsed: boolean
+  routeFilters: RouteFiltersState
   onSelectRoute: (route: BikeRoute) => void
   onClearRoute: () => void
+  onRouteFiltersChange: (filters: RouteFiltersState) => void
   onToggleRoutesPanel: () => void
 }
 
@@ -146,17 +147,16 @@ export function BikeMap({
   data,
   selectedRoute,
   isRoutesPanelCollapsed,
+  routeFilters,
   onSelectRoute,
   onClearRoute,
+  onRouteFiltersChange,
   onToggleRoutesPanel,
 }: BikeMapProps) {
   const { t, i18n } = useTranslation()
   const language = getSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
   const [activeTypes, setActiveTypes] = useState<InfrastructureType[]>(
     ALL_INFRASTRUCTURE_TYPES,
-  )
-  const [routeFilters, setRouteFilters] = useState<RouteFiltersState>(
-    DEFAULT_ROUTE_FILTERS,
   )
   const routableInfrastructureTypes = useMemo(
     () =>
@@ -364,7 +364,7 @@ export function BikeMap({
         unfilteredRouteCount={routes.length}
         selectedRoute={selectedRoute}
         onClearRoute={onClearRoute}
-        onFiltersChange={setRouteFilters}
+        onFiltersChange={onRouteFiltersChange}
         onSelectRoute={onSelectRoute}
         onToggle={onToggleRoutesPanel}
       />

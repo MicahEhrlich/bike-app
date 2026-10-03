@@ -1,7 +1,16 @@
-import { useEffect, useState } from 'react'
-import { AlertTriangle, Bike, Languages, Moon, RefreshCw, Sun } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  AlertTriangle,
+  Bike,
+  Languages,
+  Moon,
+  RefreshCw,
+  Settings2,
+  Sun,
+} from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import { BikeMap } from './components/BikeMap'
+import { OnboardingWizard } from './components/OnboardingWizard'
 import type { BikeRoute } from './data/routes'
 import { LANGUAGE_STORAGE_KEY } from './i18n'
 import {
@@ -9,6 +18,17 @@ import {
   type BikePathCollection,
 } from './utils/loadBikeData'
 import { formatNumber, getSupportedLanguage } from './utils/localization'
+import {
+  DEFAULT_ROUTE_FILTERS,
+  type RouteFiltersState,
+} from './utils/routeFilters'
+import {
+  applyProfileToFilters,
+  EMPTY_RIDER_PROFILE,
+  loadStoredRiderProfile,
+  saveRiderProfile,
+  type RiderProfile,
+} from './utils/riderProfile'
 
 type LoadState =
   | { status: 'loading' }
@@ -58,6 +78,17 @@ function App() {
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [selectedRoute, setSelectedRoute] = useState<BikeRoute | null>(null)
   const [isRoutesPanelCollapsed, setIsRoutesPanelCollapsed] = useState(false)
+  const [storedProfile] = useState(() => loadStoredRiderProfile())
+  const [riderProfile, setRiderProfile] = useState<RiderProfile>(
+    storedProfile?.profile ?? EMPTY_RIDER_PROFILE,
+  )
+  const [routeFilters, setRouteFilters] = useState<RouteFiltersState>(() =>
+    storedProfile
+      ? applyProfileToFilters(storedProfile.profile, DEFAULT_ROUTE_FILTERS)
+      : DEFAULT_ROUTE_FILTERS,
+  )
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(!storedProfile)
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -115,6 +146,29 @@ function App() {
     setSelectedRoute(route)
     setIsRoutesPanelCollapsed(false)
   }
+  const completeOnboarding = useCallback((profile: RiderProfile) => {
+    const savedProfile = saveRiderProfile(profile)
+    setRiderProfile(savedProfile)
+    setRouteFilters((current) => applyProfileToFilters(savedProfile, current))
+    setIsOnboardingOpen(false)
+    setIsEditingProfile(false)
+  }, [])
+  const skipOnboarding = useCallback(() => {
+    const savedProfile = saveRiderProfile(EMPTY_RIDER_PROFILE)
+    setRiderProfile(savedProfile)
+    setRouteFilters((current) => applyProfileToFilters(savedProfile, current))
+    setIsOnboardingOpen(false)
+    setIsEditingProfile(false)
+  }, [])
+  const cancelProfileEditing = useCallback(() => {
+    setIsOnboardingOpen(false)
+    setIsEditingProfile(false)
+  }, [])
+  const openProfileEditor = () => {
+    setIsEditingProfile(true)
+    setIsOnboardingOpen(true)
+  }
+  const riderName = riderProfile.name || t('app.guest')
 
   return (
     <div
@@ -127,13 +181,29 @@ function App() {
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-900 text-white shadow-sm">
               <Bike aria-hidden="true" size={22} strokeWidth={2.25} />
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 text-start">
               <h1 className="truncate text-lg font-extrabold tracking-[-0.035em] text-slate-950 dark:text-white sm:text-xl">
                 {t('app.brand')}
               </h1>
-              <p className="hidden text-sm text-slate-500 dark:text-slate-400 sm:block">
-                {t('app.subtitle')}
-              </p>
+              <button
+                aria-label={t('app.editPreferences')}
+                className="group block max-w-full truncate text-start text-sm text-slate-500 transition hover:text-emerald-800 focus-visible:rounded focus-visible:outline-2 focus-visible:outline-emerald-600 dark:text-slate-400 dark:hover:text-emerald-300"
+                title={t('app.editPreferences')}
+                type="button"
+                onClick={openProfileEditor}
+              >
+                <Trans
+                  components={{
+                    name: (
+                      <bdi className="font-bold text-slate-700 group-hover:text-emerald-800 dark:text-slate-200 dark:group-hover:text-emerald-300" />
+                    ),
+                  }}
+                  i18nKey="app.greeting"
+                  values={{ name: riderName }}
+                />
+                <span className="hidden sm:inline"> · {t('app.subtitle')}</span>
+                <Settings2 aria-hidden="true" className="ms-1 inline" size={12} />
+              </button>
             </div>
           </div>
 
@@ -196,15 +266,26 @@ function App() {
           <BikeMap
             data={loadState.data}
             isRoutesPanelCollapsed={isRoutesPanelCollapsed}
+            routeFilters={routeFilters}
             selectedRoute={selectedRoute}
             onClearRoute={() => setSelectedRoute(null)}
             onSelectRoute={selectRoute}
+            onRouteFiltersChange={setRouteFilters}
             onToggleRoutesPanel={() =>
               setIsRoutesPanelCollapsed((isCollapsed) => !isCollapsed)
             }
           />
         )}
       </main>
+      {isOnboardingOpen && (
+        <OnboardingWizard
+          initialProfile={riderProfile}
+          isEditing={isEditingProfile}
+          onCancel={cancelProfileEditing}
+          onComplete={completeOnboarding}
+          onSkip={skipOnboarding}
+        />
+      )}
     </div>
   )
 }

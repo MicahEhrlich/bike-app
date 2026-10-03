@@ -9,8 +9,11 @@ const resources = {
   en: {
     translation: {
       app: {
-        brand: 'MetroBike TLV',
-        subtitle: 'Bike infrastructure across the Dan region',
+        brand: 'Bishvil',
+        subtitle: 'Find a ride worth taking',
+        greeting: 'Hello, <name>{{name}}</name>',
+        guest: 'Guest',
+        editPreferences: 'Edit rider preferences',
         pathsCount: '{{count}} paths',
         waterCount: '{{count}} water',
         restroomsCount: '{{count}} restrooms',
@@ -24,9 +27,9 @@ const resources = {
         switchTheme: 'Switch to {{theme}} mode',
         light: 'light',
         dark: 'dark',
-        documentTitle: 'MetroBike TLV',
+        documentTitle: 'Bishvil — find your next ride',
         documentDescription:
-          'Discover continuous bike routes across Tel Aviv, Ramat Gan, and Givatayim.',
+          'Find a bike ride that fits you across Tel Aviv, Ramat Gan, and Givatayim.',
       },
       map: {
         ariaLabel: 'Dan region bike infrastructure map',
@@ -75,8 +78,9 @@ const resources = {
           'Include out-and-back rides that return along the same path.',
         difficultyLabel: 'Difficulty',
         anyDifficulty: 'Any difficulty',
-        cityLabel: 'City',
+        cityLabel: 'Cities',
         allCities: 'All cities',
+        matchAnyCity: 'Matches any selected city',
         requiredAmenities: 'Required amenities',
         water: 'Water',
         restrooms: 'Restrooms',
@@ -128,13 +132,59 @@ const resources = {
         kilometers: '{{value}} km',
         meters: '{{value}} m',
       },
+      onboarding: {
+        progress: 'Step {{current}} of {{total}}',
+        nameTitle: 'What should we call you?',
+        nameDescription:
+          'A name makes your rides feel a little more personal. You can leave this blank.',
+        nameLabel: 'Your name',
+        namePlaceholder: 'For example, John',
+        nameOptional: 'Optional · up to 40 characters',
+        difficultyTitle: 'How do you like to ride?',
+        difficultyDescription:
+          'Choose a preferred difficulty. You can adjust this from the route filters anytime.',
+        lengthTitle: 'How far should we take you?',
+        lengthDescription:
+          'Pick your usual ride length and we’ll start with routes that match.',
+        length: {
+          any: {
+            label: 'Any distance',
+            description: 'Show every available route',
+          },
+          short: {
+            label: 'Short · up to 1 km',
+            description: 'A quick spin or easy start',
+          },
+          medium: {
+            label: 'Medium · 1–2 km',
+            description: 'A balanced everyday ride',
+          },
+          long: {
+            label: 'Long · 2–3 km',
+            description: 'More time on the bike',
+          },
+        },
+        citiesTitle: 'Where would you like to ride?',
+        citiesDescription:
+          'Choose one or more cities. Routes through any selected city will be included.',
+        citiesOptional: 'Leave every city unchecked to explore the whole region.',
+        cancel: 'Cancel',
+        skip: 'Skip setup',
+        back: 'Back',
+        continue: 'Continue',
+        save: 'Save preferences',
+        finish: 'Find my ride',
+      },
     },
   },
   he: {
     translation: {
       app: {
-        brand: 'MetroBike TLV',
-        subtitle: 'תשתיות אופניים ברחבי גוש דן',
+        brand: 'בשביל',
+        subtitle: 'מוצאים סיבה לצאת לרכיבה',
+        greeting: 'שלום, <name>{{name}}</name>',
+        guest: 'אורח/ת',
+        editPreferences: 'עריכת העדפות הרכיבה',
         pathsCount: '{{count}} שבילים',
         waterCount: '{{count}} נקודות מים',
         restroomsCount: '{{count}} שירותים',
@@ -148,9 +198,9 @@ const resources = {
         switchTheme: 'מעבר למצב {{theme}}',
         light: 'בהיר',
         dark: 'כהה',
-        documentTitle: 'MetroBike TLV',
+        documentTitle: 'בשביל — מוצאים את הרכיבה הבאה',
         documentDescription:
-          'מציאת מסלולי אופניים רציפים בתל אביב, רמת גן וגבעתיים.',
+          'מוצאים רכיבת אופניים שמתאימה לכם בתל אביב, רמת גן וגבעתיים.',
       },
       map: {
         ariaLabel: 'מפת תשתיות האופניים בגוש דן',
@@ -197,8 +247,9 @@ const resources = {
         allowRetracingHelp: 'כולל מסלולי הלוך־חזור שחוזרים על אותו שביל.',
         difficultyLabel: 'רמת קושי',
         anyDifficulty: 'כל רמות הקושי',
-        cityLabel: 'עיר',
+        cityLabel: 'ערים',
         allCities: 'כל הערים',
+        matchAnyCity: 'התאמה לכל אחת מהערים שנבחרו',
         requiredAmenities: 'שירותים נדרשים',
         water: 'מים',
         restrooms: 'שירותים',
@@ -248,6 +299,49 @@ const resources = {
       units: {
         kilometers: '{{value}} ק״מ',
         meters: '{{value}} מ׳',
+      },
+      onboarding: {
+        progress: 'שלב {{current}} מתוך {{total}}',
+        nameTitle: 'איך לפנות אליך?',
+        nameDescription:
+          'שם הופך את חוויית הרכיבה לאישית יותר. אפשר גם להשאיר את השדה ריק.',
+        nameLabel: 'השם שלך',
+        namePlaceholder: 'לדוגמה, דנה',
+        nameOptional: 'לא חובה · עד 40 תווים',
+        difficultyTitle: 'איך מתאים לך לרכוב?',
+        difficultyDescription:
+          'בחרו רמת קושי מועדפת. תמיד אפשר לשנות אותה במסנני המסלולים.',
+        lengthTitle: 'לאיזה מרחק יוצאים?',
+        lengthDescription:
+          'בחרו את אורך הרכיבה הרגיל ונציג קודם מסלולים מתאימים.',
+        length: {
+          any: {
+            label: 'כל מרחק',
+            description: 'הצגת כל המסלולים הזמינים',
+          },
+          short: {
+            label: 'קצר · עד 1 ק״מ',
+            description: 'סיבוב מהיר או התחלה קלה',
+          },
+          medium: {
+            label: 'בינוני · 1–2 ק״מ',
+            description: 'רכיבה יומיומית מאוזנת',
+          },
+          long: {
+            label: 'ארוך · 2–3 ק״מ',
+            description: 'יותר זמן על האופניים',
+          },
+        },
+        citiesTitle: 'איפה מתאים לך לרכוב?',
+        citiesDescription:
+          'בחרו עיר אחת או יותר. יוצגו מסלולים שעוברים בכל אחת מהערים שנבחרו.',
+        citiesOptional: 'אם לא תיבחר עיר, נציג מסלולים מכל האזור.',
+        cancel: 'ביטול',
+        skip: 'דילוג על ההגדרה',
+        back: 'חזרה',
+        continue: 'המשך',
+        save: 'שמירת העדפות',
+        finish: 'למציאת רכיבה',
       },
     },
   },

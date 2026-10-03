@@ -13,7 +13,7 @@ import {
   Toilet,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { BikeRoute } from '../data/routes'
+import type { BikeRoute, RouteCity } from '../data/routes'
 import type { RouteAmenity } from '../utils/routePois'
 import {
   countActiveRouteFilters,
@@ -271,6 +271,15 @@ function RouteFilters({
     filters.minDistanceKm > filters.maxDistanceKm
   const parseDistance = (value: string) =>
     value === '' ? null : Math.max(0, Number(value))
+  const cityOptions: RouteCity[] = ['Tel Aviv', 'Ramat Gan', 'Givatayim']
+  const toggleCity = (city: RouteCity) => {
+    onChange({
+      ...filters,
+      cities: filters.cities.includes(city)
+        ? filters.cities.filter((currentCity) => currentCity !== city)
+        : [...filters.cities, city],
+    })
+  }
 
   return (
     <details className="rounded-2xl border border-stone-200 bg-stone-50">
@@ -405,8 +414,8 @@ function RouteFilters({
           </span>
         </label>
 
-        <div className="grid grid-cols-2 gap-2">
-          <label className="mt-2 text-xs font-bold text-slate-500">
+        <div className="mt-2">
+          <label className="block text-xs font-bold text-slate-500">
             {t('routes.difficultyLabel')}
             <select
               className={selectClassName}
@@ -424,25 +433,36 @@ function RouteFilters({
               <option value="Hard">{t('difficulty.hard')}</option>
             </select>
           </label>
-          <label className="mt-2 text-xs font-bold text-slate-500">
-            {t('routes.cityLabel')}
-            <select
-              className={selectClassName}
-              value={filters.city}
-              onChange={(event) =>
-                onChange({
-                  ...filters,
-                  city: event.target.value as RouteFiltersState['city'],
-                })
-              }
-            >
-              <option value="all">{t('routes.allCities')}</option>
-              <option value="Tel Aviv">{t('cities.telAviv')}</option>
-              <option value="Ramat Gan">{t('cities.ramatGan')}</option>
-              <option value="Givatayim">{t('cities.givatayim')}</option>
-            </select>
-          </label>
         </div>
+
+        <fieldset className="mt-3">
+          <legend className="text-xs font-bold text-slate-500">
+            {t('routes.cityLabel')}
+          </legend>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {cityOptions.map((city) => (
+              <label
+                key={city}
+                className={`cursor-pointer rounded-full border px-3 py-2 text-xs font-bold transition focus-within:outline-2 focus-within:outline-emerald-700 ${
+                  filters.cities.includes(city)
+                    ? 'border-emerald-700 bg-emerald-700 text-white'
+                    : 'border-stone-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+                }`}
+              >
+                <input
+                  checked={filters.cities.includes(city)}
+                  className="sr-only"
+                  type="checkbox"
+                  onChange={() => toggleCity(city)}
+                />
+                {translateCity(city, t)}
+              </label>
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs text-slate-400">
+            {filters.cities.length === 0 ? t('routes.allCities') : t('routes.matchAnyCity')}
+          </p>
+        </fieldset>
 
         <div
           className="mt-3 flex gap-2"

@@ -15,7 +15,7 @@ export interface RouteFiltersState {
   minDistanceKm: number | null
   maxDistanceKm: number | null
   difficulty: RouteDifficulty | 'all'
-  city: RouteCity | 'all'
+  cities: RouteCity[]
   hasWater: boolean
   hasRestroom: boolean
   roundTrip: boolean
@@ -27,7 +27,7 @@ export const DEFAULT_ROUTE_FILTERS: RouteFiltersState = {
   minDistanceKm: null,
   maxDistanceKm: null,
   difficulty: 'all',
-  city: 'all',
+  cities: [],
   hasWater: false,
   hasRestroom: false,
   roundTrip: false,
@@ -39,7 +39,7 @@ export function countActiveRouteFilters(filters: RouteFiltersState): number {
   return (
     Number(filters.minDistanceKm !== null || filters.maxDistanceKm !== null) +
     Number(filters.difficulty !== 'all') +
-    Number(filters.city !== 'all') +
+    Number(filters.cities.length > 0) +
     Number(filters.roundTrip) +
     Number(filters.roundTrip && filters.allowRetracing) +
     Number(filters.hasWater) +
@@ -73,7 +73,8 @@ export function filterRoutes(
         matchesDistance(route, filters) &&
         (filters.difficulty === 'all' ||
           route.difficulty === filters.difficulty) &&
-        (filters.city === 'all' || route.cities.includes(filters.city)) &&
+        (filters.cities.length === 0 ||
+          filters.cities.some((city) => route.cities.includes(city))) &&
         (!filters.roundTrip || route.isRoundTrip) &&
         (!filters.hasWater ||
           amenities.some((amenity) => amenity.type === 'fountain')) &&
