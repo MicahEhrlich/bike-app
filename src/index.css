@@ -242,3 +242,17 @@ button {
 .dark .amenity-marker:focus-visible {
   outline-color: #f8fafc;
 }
+
+.route-endpoint {
+  box-sizing: border-box;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 35%);
+}
+
+.route-endpoint--start { background: #059669; }
+.route-endpoint--end { background: #e11d48; }
+.route-endpoint.leaflet-marker-draggable { cursor: grab; }
+.route-endpoint.leaflet-marker-draggable:active { cursor: grabbing; }
+.route-endpoint:focus-visible { outline: 3px solid #0f172a; outline-offset: 3px; }
+.dark .route-endpoint:focus-visible { outline-color: #f8fafc; }

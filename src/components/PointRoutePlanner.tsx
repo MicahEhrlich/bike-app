@@ -61,7 +61,7 @@ export function PointRoutePlanner({
         ? t('pointRoute.chooseEnd')
         : t('pointRoute.routeReady', {
             distance: t('units.kilometers', {
-              value: formatNumber(distanceKm ?? 0, language),
+              value: formatNumber(distanceKm ?? 0, language, 2),
             }),
           })
 

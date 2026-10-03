@@ -84,6 +84,11 @@ const ROUTE_DRAG_HANDLE_ICON = divIcon({
   iconSize: [28, 28],
 })
 
+const ENDPOINT_ICONS = {
+  start: divIcon({ className: 'route-endpoint route-endpoint--start', html: '', iconSize: [26, 26], iconAnchor: [13, 13] }),
+  end: divIcon({ className: 'route-endpoint route-endpoint--end', html: '', iconSize: [26, 26], iconAnchor: [13, 13] }),
+}
+
 interface CurrentLocation {
   latitude: number
   longitude: number
@@ -288,6 +293,7 @@ export function BikeMap({
         selectedRoute,
       ]
     : displayedRoutes
+  const displayedPointRoute = dragRoutePreview ?? pointToPointRoute
   const routeDragHandlePosition = pointToPointRoute
     ? routeViaPoint?.coordinate ??
       coordinateAlongRoute(pointToPointRoute.coordinates, 0.5)
@@ -477,6 +483,46 @@ export function BikeMap({
     }
     setDragHandleRevision((revision) => revision + 1)
   }, [calculateDetour, previewRouteThroughCoordinate])
+  const calculateEndpointRoute = (endpoint: 'start' | 'end', coordinate: [number, number]):
+    { error: string } | { route: PointToPointRoute; snap: NetworkSnap } => {
+    const snap = snapToBikeNetwork(bikeNetwork, coordinate,
+      endpoint === 'start' ? START_MAX_SNAP_METERS : undefined)
+    if (!snap) return { error: endpoint === 'start' ? 'pointRoute.startTooFar' : 'pointRoute.pointTooFar' }
+    const start = endpoint === 'start' ? snap : plannedStart
+    const end = endpoint === 'end' ? snap : plannedEnd
+    if (!start || !end) return { error: 'pointRoute.endpointUnavailable' }
+    const waypoints = routeViaPoint ? [start, routeViaPoint, end] : [start, end]
+    const legs = waypoints.slice(1).map((point, index) =>
+      findShortestBikePath(bikeNetwork, waypoints[index].nodeId, point.nodeId))
+    if (legs.some((leg) => !leg)) return { error: 'pointRoute.endpointUnavailable' }
+    const route = {
+      coordinates: legs.flatMap((leg, index) => index === 0 ? leg!.coordinates : leg!.coordinates.slice(1)),
+      distanceKm: legs.reduce((total, leg) => total + leg!.distanceKm, 0),
+    }
+    if (route.distanceKm < 0.01) return { error: 'pointRoute.pointsTooClose' }
+    return { route, snap }
+  }
+  const previewEndpoint = (endpoint: 'start' | 'end', coordinate: [number, number]) => {
+    if (previewFrame.current !== null) cancelAnimationFrame(previewFrame.current)
+    previewFrame.current = requestAnimationFrame(() => {
+      previewFrame.current = null
+      const result = calculateEndpointRoute(endpoint, coordinate)
+      setDragRoutePreview('route' in result ? result.route : null)
+    })
+  }
+  const moveEndpoint = (endpoint: 'start' | 'end', coordinate: [number, number]) => {
+    previewRouteThroughCoordinate(null)
+    const result = calculateEndpointRoute(endpoint, coordinate)
+    if ('error' in result) {
+      setPointRouteErrorKey(result.error)
+    } else {
+      if (endpoint === 'start') setPlannedStart(result.snap)
+      else setPlannedEnd(result.snap)
+      setPointToPointRoute(result.route)
+      setPointRouteErrorKey(null)
+    }
+    setDragHandleRevision((revision) => revision + 1)
+  }
   const changePointRouteDestination = () => {
     previewRouteThroughCoordinate(null)
     setPlannedEnd(null)
@@ -613,52 +659,51 @@ export function BikeMap({
             )}
           </>
         )}
-        {pointToPointRoute && (
+        {displayedPointRoute && (
           <Polyline
             pathOptions={{
               color: '#e11d48',
               opacity: 1,
               weight: 7,
             }}
-            positions={(dragRoutePreview ?? pointToPointRoute).coordinates}
+            positions={displayedPointRoute.coordinates}
           >
             <Tooltip direction="top" sticky>
               <strong>{t('pointRoute.yourRoute')}</strong>
               <br />
               {t('units.kilometers', {
-                value: formatNumber((dragRoutePreview ?? pointToPointRoute).distanceKm, language),
+                value: formatNumber(displayedPointRoute.distanceKm, language, 2),
               })}
             </Tooltip>
           </Polyline>
         )}
-        {plannedStart && (
-          <CircleMarker
-            center={plannedStart.coordinate}
-            pathOptions={{
-              color: '#ffffff',
-              fillColor: '#059669',
-              fillOpacity: 1,
-              weight: 3,
-            }}
-            radius={9}
-          >
-            <Tooltip direction="top">{t('pointRoute.start')}</Tooltip>
-          </CircleMarker>
-        )}
-        {plannedEnd && (
-          <CircleMarker
-            center={plannedEnd.coordinate}
-            pathOptions={{
-              color: '#ffffff',
-              fillColor: '#e11d48',
-              fillOpacity: 1,
-              weight: 3,
-            }}
-            radius={9}
-          >
-            <Tooltip direction="top">{t('pointRoute.destination')}</Tooltip>
-          </CircleMarker>
-        )}
+        {(['start', 'end'] as const).map((endpoint) => {
+          const point = endpoint === 'start' ? plannedStart : plannedEnd
+          const label = t(endpoint === 'start' ? 'pointRoute.start' : 'pointRoute.destination')
+          const dragLabel = t(endpoint === 'start' ? 'pointRoute.dragStart' : 'pointRoute.dragDestination')
+          return point && (
+            <Marker
+              key={`${endpoint}-${dragHandleRevision}`}
+              position={point.coordinate}
+              icon={ENDPOINT_ICONS[endpoint]}
+              draggable={planningStage === 'complete'}
+              alt={label}
+              title={planningStage === 'complete' ? dragLabel : label}
+              eventHandlers={{
+                drag: (event) => {
+                  const coordinate = (event.target as LeafletMarker).getLatLng()
+                  previewEndpoint(endpoint, [coordinate.lat, coordinate.lng])
+                },
+                dragend: (event) => {
+                  const coordinate = (event.target as LeafletMarker).getLatLng()
+                  moveEndpoint(endpoint, [coordinate.lat, coordinate.lng])
+                },
+              }}
+            >
+              <Tooltip direction="top">{planningStage === 'complete' ? dragLabel : label}</Tooltip>
+            </Marker>
+          )
+        })}
         {planningStage === 'complete' && routeDragHandlePosition && (
           <Marker
             key={`route-drag-handle-${dragHandleRevision}`}
@@ -777,7 +822,7 @@ export function BikeMap({
       </p>
 
       <PointRoutePlanner
-        distanceKm={(dragRoutePreview ?? pointToPointRoute)?.distanceKm ?? null}
+        distanceKm={displayedPointRoute?.distanceKm ?? null}
         errorKey={pointRouteErrorKey}
         hasViaPoint={routeViaPoint !== null}
         stage={planningStage}
