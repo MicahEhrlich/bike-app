@@ -122,6 +122,28 @@ button {
   cursor: crosshair;
 }
 
+.route-drag-handle {
+  box-sizing: border-box;
+  border: 4px solid #e11d48;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgb(15 23 42 / 35%);
+  cursor: grab;
+}
+
+.route-drag-handle:active {
+  cursor: grabbing;
+}
+
+.route-drag-handle:focus {
+  outline: 3px solid #0f172a;
+  outline-offset: 3px;
+}
+
+.dark .route-drag-handle:focus {
+  outline-color: #f8fafc;
+}
+
 .dark .leaflet-container {
   background: #0f172a;
 }
@@ -186,4 +208,37 @@ button {
 
 .dark .bike-path-tooltip__type {
   color: #94a3b8;
+}
+
+.amenity-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  color: #fff;
+  box-shadow: 0 2px 6px rgb(15 23 42 / 30%);
+}
+
+.amenity-marker svg {
+  width: 20px;
+  height: 20px;
+}
+
+.amenity-marker--water {
+  background: #0284c7;
+}
+
+.amenity-marker--restroom {
+  background: #7c3aed;
+}
+
+.amenity-marker:focus-visible {
+  outline: 3px solid #0f172a;
+  outline-offset: 2px;
+}
+
+.dark .amenity-marker:focus-visible {
+  outline-color: #f8fafc;
 }

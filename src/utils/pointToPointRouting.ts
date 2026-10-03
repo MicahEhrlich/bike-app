@@ -55,6 +55,40 @@ function distanceKm(first: RouteCoordinate, second: RouteCoordinate): number {
   return earthRadiusKm * 2 * Math.asin(Math.sqrt(haversine))
 }
 
+export function coordinateAlongRoute(
+  coordinates: RouteCoordinate[],
+  fraction: number,
+): RouteCoordinate {
+  if (coordinates.length === 0) return [0, 0]
+  if (coordinates.length === 1) return coordinates[0]
+  const segmentLengths = coordinates.slice(1).map((coordinate, index) =>
+    distanceKm(coordinates[index], coordinate),
+  )
+  const targetDistance =
+    segmentLengths.reduce((total, length) => total + length, 0) *
+    Math.max(0, Math.min(1, fraction))
+  let coveredDistance = 0
+
+  for (let index = 0; index < segmentLengths.length; index += 1) {
+    const segmentLength = segmentLengths[index]
+    if (coveredDistance + segmentLength >= targetDistance) {
+      const ratio =
+        segmentLength === 0
+          ? 0
+          : (targetDistance - coveredDistance) / segmentLength
+      return [
+        coordinates[index][0] +
+          (coordinates[index + 1][0] - coordinates[index][0]) * ratio,
+        coordinates[index][1] +
+          (coordinates[index + 1][1] - coordinates[index][1]) * ratio,
+      ]
+    }
+    coveredDistance += segmentLength
+  }
+
+  return coordinates.at(-1) ?? coordinates[0]
+}
+
 function gridCoordinate(value: number) {
   return Math.floor(value / GRID_SIZE_DEGREES)
 }

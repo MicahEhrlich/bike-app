@@ -55,8 +55,15 @@ const resources = {
         planRoute: 'Plan a route',
         chooseStart: 'Choose your starting point on the map',
         chooseEnd: 'Now choose your destination',
+        changeDestination: 'Choose another destination',
+        retryDestinationHelp: 'Your starting point is saved. Click another destination on the map to try again.',
         snapHelp: 'Your selection will snap to the nearest available bike path.',
+        startSnapHelp: 'Choose a starting point within 700 m of an available bike path. It will snap to the path.',
+        startTooFar: 'Choose a starting point closer to an available bike path (within 700 m).',
         routeReady: 'Your route is ready · {{distance}}',
+        dragHelp: 'Drag any part of the route or the white handle to take another available path.',
+        dragHandle: 'Drag to reshape this route',
+        removeDetour: 'Restore the shortest route',
         startOver: 'Start over',
         closePlanner: 'Close route planner',
         start: 'Start',
@@ -69,6 +76,10 @@ const resources = {
         noConnectedRoute:
           'These points are not connected by the available bike paths. Try another destination.',
         pointsTooClose: 'Choose a destination farther from the starting point.',
+        dragTooFar:
+          'Drop the route handle closer to an available bike path (within 300 m).',
+        noConnectedDetour:
+          'The route cannot reach that path from both endpoints. The previous route was kept.',
       },
       layers: {
         title: 'Map layers',
@@ -257,8 +268,15 @@ const resources = {
         planRoute: 'תכנון מסלול',
         chooseStart: 'בחרו נקודת התחלה על המפה',
         chooseEnd: 'עכשיו בחרו יעד',
+        changeDestination: 'בחירת יעד אחר',
+        retryDestinationHelp: 'נקודת ההתחלה נשמרה. לחצו על יעד אחר במפה כדי לנסות שוב.',
         snapHelp: 'הבחירה תוצמד לשביל האופניים הזמין הקרוב ביותר.',
+        startSnapHelp: 'בחרו נקודת התחלה במרחק של עד 700 מ׳ משביל אופניים זמין. הנקודה תוצמד לשביל.',
+        startTooFar: 'יש לבחור נקודת התחלה קרובה יותר לשביל אופניים זמין (עד 700 מ׳).',
         routeReady: 'המסלול מוכן · {{distance}}',
+        dragHelp: 'גררו כל חלק במסלול או את הידית הלבנה כדי לעבור בשביל זמין אחר.',
+        dragHandle: 'גרירה לשינוי המסלול',
+        removeDetour: 'חזרה למסלול הקצר ביותר',
         startOver: 'התחלה מחדש',
         closePlanner: 'סגירת מתכנן המסלול',
         start: 'התחלה',
@@ -271,6 +289,10 @@ const resources = {
         noConnectedRoute:
           'אין חיבור בין הנקודות דרך שבילי האופניים הזמינים. כדאי לבחור יעד אחר.',
         pointsTooClose: 'יש לבחור יעד רחוק יותר מנקודת ההתחלה.',
+        dragTooFar:
+          'יש לשחרר את ידית המסלול קרוב יותר לשביל אופניים זמין (עד 300 מ׳).',
+        noConnectedDetour:
+          'לא ניתן להגיע לשביל הזה משתי נקודות הקצה. המסלול הקודם נשמר.',
       },
       layers: {
         title: 'שכבות מפה',

@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Feature, Geometry, Point } from 'geojson'
 import type { TFunction } from 'i18next'
 import { LoaderCircle, LocateFixed } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
-  circleMarker,
+  marker,
+  divIcon,
   latLngBounds,
   type LatLng,
   type Layer,
+  type Marker as LeafletMarker,
   type PathOptions,
 } from 'leaflet'
 import {
@@ -15,6 +17,7 @@ import {
   CircleMarker,
   GeoJSON,
   MapContainer,
+  Marker,
   Polyline,
   TileLayer,
   Tooltip,
@@ -29,6 +32,7 @@ import type {
 import { findNearbyAmenities } from '../utils/routePois'
 import {
   buildBikeNetwork,
+  coordinateAlongRoute,
   findShortestBikePath,
   snapToBikeNetwork,
   type NetworkSnap,
@@ -70,7 +74,15 @@ interface BikeMapProps {
   onToggleRoutesPanel: () => void
 }
 
+const START_MAX_SNAP_METERS = 700
+
 const MAP_CENTER: [number, number] = [32.078, 34.781]
+const ROUTE_DRAG_HANDLE_ICON = divIcon({
+  className: 'route-drag-handle',
+  html: '',
+  iconAnchor: [14, 14],
+  iconSize: [28, 28],
+})
 
 interface CurrentLocation {
   latitude: number
@@ -148,19 +160,36 @@ function bindFeatureTooltip(
   })
 }
 
+const AMENITY_ICONS = {
+  fountain: divIcon({
+    className: 'amenity-marker amenity-marker--water',
+    html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c-2.5 3.5-7 7.9-7 12a7 7 0 0 0 14 0c0-4.1-4.5-8.5-7-12Z"/><path d="M8 15a4 4 0 0 0 4 4"/></svg>',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    tooltipAnchor: [0, -16],
+  }),
+  restroom: divIcon({
+    className: 'amenity-marker amenity-marker--restroom',
+    html: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6" cy="4" r="2"/><circle cx="18" cy="4" r="2"/><path d="M3 7h6v7H8v7H6.5v-7h-1v7H4v-7H3V7Zm13 0h4l3 9h-3v5h-1.5v-5h-1v5H16v-5h-3l3-9Z"/><path d="M11.5 2h1v20h-1z"/></svg>',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    tooltipAnchor: [0, -16],
+  }),
+}
+
 function createAmenityMarker(
   feature: Feature<Point, BikePathProperties>,
   latLng: LatLng,
+  t: TFunction,
 ) {
-  const type = classifyInfrastructureFeature(feature)
-
-  return circleMarker(latLng, {
-    color: '#ffffff',
-    fillColor: type === 'restroom' ? '#7c3aed' : '#0284c7',
-    fillOpacity: 1,
-    opacity: 1,
-    radius: 6,
-    weight: 2,
+  const isRestroom = classifyInfrastructureFeature(feature) === 'restroom'
+  const label = t(isRestroom ? 'amenities.publicRestroom' : 'amenities.drinkingWater')
+  return marker(latLng, {
+    icon: isRestroom ? AMENITY_ICONS.restroom : AMENITY_ICONS.fountain,
+    alt: label,
+    title: label,
+    keyboard: true,
+    riseOnHover: true,
   })
 }
 
@@ -191,6 +220,10 @@ export function BikeMap({
   const [plannedEnd, setPlannedEnd] = useState<NetworkSnap | null>(null)
   const [pointToPointRoute, setPointToPointRoute] =
     useState<PointToPointRoute | null>(null)
+  const [dragRoutePreview, setDragRoutePreview] = useState<PointToPointRoute | null>(null)
+  const previewFrame = useRef<number | null>(null)
+  const [routeViaPoint, setRouteViaPoint] = useState<NetworkSnap | null>(null)
+  const [dragHandleRevision, setDragHandleRevision] = useState(0)
   const [pointRouteErrorKey, setPointRouteErrorKey] = useState<string | null>(
     null,
   )
@@ -255,6 +288,10 @@ export function BikeMap({
         selectedRoute,
       ]
     : displayedRoutes
+  const routeDragHandlePosition = pointToPointRoute
+    ? routeViaPoint?.coordinate ??
+      coordinateAlongRoute(pointToPointRoute.coordinates, 0.5)
+    : null
   const toggleInfrastructureType = (type: InfrastructureType) => {
     setActiveTypes((currentTypes) =>
       currentTypes.includes(type)
@@ -314,6 +351,7 @@ export function BikeMap({
     setPlannedStart(null)
     setPlannedEnd(null)
     setPointToPointRoute(null)
+    setRouteViaPoint(null)
     setPointRouteErrorKey(null)
     setPlanningStage('start')
   }
@@ -322,24 +360,32 @@ export function BikeMap({
     setPlannedStart(null)
     setPlannedEnd(null)
     setPointToPointRoute(null)
+    setRouteViaPoint(null)
     setPointRouteErrorKey(null)
   }
   const startPointRouteOver = () => {
     setPlannedStart(null)
     setPlannedEnd(null)
     setPointToPointRoute(null)
+    setRouteViaPoint(null)
     setPointRouteErrorKey(null)
     setPlanningStage('start')
   }
   const selectPointRouteCoordinate = useCallback(
     (coordinate: [number, number]) => {
       if (planningStage !== 'start' && planningStage !== 'end') return
-      const snap = snapToBikeNetwork(bikeNetwork, coordinate)
+      const snap = snapToBikeNetwork(
+        bikeNetwork,
+        coordinate,
+        planningStage === 'start' ? START_MAX_SNAP_METERS : undefined,
+      )
       if (!snap) {
         setPointRouteErrorKey(
           bikeNetwork.nodes.length === 0
             ? 'pointRoute.noInfrastructure'
-            : 'pointRoute.pointTooFar',
+            : planningStage === 'start'
+              ? 'pointRoute.startTooFar'
+              : 'pointRoute.pointTooFar',
         )
         return
       }
@@ -348,6 +394,7 @@ export function BikeMap({
         setPlannedStart(snap)
         setPlannedEnd(null)
         setPointToPointRoute(null)
+        setRouteViaPoint(null)
         setPointRouteErrorKey(null)
         setPlanningStage('end')
         return
@@ -371,11 +418,86 @@ export function BikeMap({
 
       setPlannedEnd(snap)
       setPointToPointRoute(route)
+      setRouteViaPoint(null)
       setPointRouteErrorKey(null)
       setPlanningStage('complete')
     },
     [bikeNetwork, plannedStart, planningStage],
   )
+  const detourCache = useRef<{
+    network: unknown
+    start: NetworkSnap
+    end: NetworkSnap
+    nodeId: number
+    route: PointToPointRoute | null
+  } | null>(null)
+  const calculateDetour = useCallback((coordinate: [number, number]):
+    { error: string } | { route: PointToPointRoute; snap: NetworkSnap } => {
+      const snap = snapToBikeNetwork(bikeNetwork, coordinate)
+      if (!snap) return { error: 'pointRoute.dragTooFar' } as const
+      if (!plannedStart || !plannedEnd) return { error: 'pointRoute.noConnectedDetour' } as const
+      if (detourCache.current?.network !== bikeNetwork || detourCache.current?.start !== plannedStart || detourCache.current?.end !== plannedEnd || detourCache.current?.nodeId !== snap.nodeId) {
+        const firstLeg = findShortestBikePath(bikeNetwork, plannedStart.nodeId, snap.nodeId)
+        const secondLeg = findShortestBikePath(bikeNetwork, snap.nodeId, plannedEnd.nodeId)
+        const route = firstLeg && secondLeg ? {
+          coordinates: [...firstLeg.coordinates, ...secondLeg.coordinates.slice(1)],
+          distanceKm: firstLeg.distanceKm + secondLeg.distanceKm,
+        } : null
+        detourCache.current = { network: bikeNetwork, start: plannedStart, end: plannedEnd, nodeId: snap.nodeId, route }
+      }
+      const cachedRoute = detourCache.current?.route
+      if (!cachedRoute) return { error: 'pointRoute.noConnectedDetour' } as const
+      return { route: cachedRoute, snap }
+  }, [bikeNetwork, plannedStart, plannedEnd])
+  const previewRouteThroughCoordinate = useCallback((coordinate: [number, number] | null) => {
+    if (previewFrame.current !== null) cancelAnimationFrame(previewFrame.current)
+    previewFrame.current = null
+    if (!coordinate) {
+      setDragRoutePreview(null)
+      return
+    }
+    previewFrame.current = requestAnimationFrame(() => {
+      previewFrame.current = null
+      const result = calculateDetour(coordinate)
+      setDragRoutePreview('route' in result ? result.route : null)
+    })
+  }, [calculateDetour])
+  useEffect(() => () => {
+    if (previewFrame.current !== null) cancelAnimationFrame(previewFrame.current)
+  }, [])
+  const rerouteThroughCoordinate = useCallback((coordinate: [number, number]) => {
+    previewRouteThroughCoordinate(null)
+    const result = calculateDetour(coordinate)
+    if ('error' in result) {
+      setPointRouteErrorKey(result.error)
+    } else {
+      setPointToPointRoute(result.route)
+      setRouteViaPoint(result.snap)
+      setPointRouteErrorKey(null)
+    }
+    setDragHandleRevision((revision) => revision + 1)
+  }, [calculateDetour, previewRouteThroughCoordinate])
+  const changePointRouteDestination = () => {
+    previewRouteThroughCoordinate(null)
+    setPlannedEnd(null)
+    setPointToPointRoute(null)
+    setRouteViaPoint(null)
+    setPointRouteErrorKey(null)
+    setPlanningStage(plannedStart ? 'end' : 'start')
+  }
+  const removeRouteViaPoint = () => {
+    if (!plannedStart || !plannedEnd) return
+    const directRoute = findShortestBikePath(
+      bikeNetwork,
+      plannedStart.nodeId,
+      plannedEnd.nodeId,
+    )
+    if (!directRoute) return
+    setPointToPointRoute(directRoute)
+    setRouteViaPoint(null)
+    setPointRouteErrorKey(null)
+    setDragHandleRevision((revision) => revision + 1)
+  }
 
   useEffect(() => {
     if (
@@ -417,7 +539,7 @@ export function BikeMap({
           onEachFeature={(feature, layer) =>
             bindFeatureTooltip(feature, layer, t, language)
           }
-          pointToLayer={createAmenityMarker}
+          pointToLayer={(feature, latLng) => createAmenityMarker(feature, latLng, t)}
           style={getPathStyle}
         />
         {(planningStage === 'inactive' ? orderedRoutes : []).map((route) => {
@@ -498,13 +620,13 @@ export function BikeMap({
               opacity: 1,
               weight: 7,
             }}
-            positions={pointToPointRoute.coordinates}
+            positions={(dragRoutePreview ?? pointToPointRoute).coordinates}
           >
             <Tooltip direction="top" sticky>
               <strong>{t('pointRoute.yourRoute')}</strong>
               <br />
               {t('units.kilometers', {
-                value: formatNumber(pointToPointRoute.distanceKm, language),
+                value: formatNumber((dragRoutePreview ?? pointToPointRoute).distanceKm, language),
               })}
             </Tooltip>
           </Polyline>
@@ -536,6 +658,30 @@ export function BikeMap({
           >
             <Tooltip direction="top">{t('pointRoute.destination')}</Tooltip>
           </CircleMarker>
+        )}
+        {planningStage === 'complete' && routeDragHandlePosition && (
+          <Marker
+            key={`route-drag-handle-${dragHandleRevision}`}
+            alt={t('pointRoute.dragHandle')}
+            draggable
+            icon={ROUTE_DRAG_HANDLE_ICON}
+            keyboard
+            position={routeDragHandlePosition}
+            title={t('pointRoute.dragHandle')}
+            eventHandlers={{
+              drag: (event) => {
+                const coordinate = (event.target as LeafletMarker).getLatLng()
+                previewRouteThroughCoordinate([coordinate.lat, coordinate.lng])
+              },
+              dragend: (event) => {
+                const marker = event.target as LeafletMarker
+                const coordinate = marker.getLatLng()
+                rerouteThroughCoordinate([coordinate.lat, coordinate.lng])
+              },
+            }}
+          >
+            <Tooltip direction="top">{t('pointRoute.dragHandle')}</Tooltip>
+          </Marker>
         )}
         {currentLocation && (
           <>
@@ -581,6 +727,13 @@ export function BikeMap({
           location={currentLocation}
         />
         <PointRouteViewportController route={pointToPointRoute} />
+        {pointToPointRoute && planningStage === 'complete' && (
+          <RouteDragController
+            route={pointToPointRoute}
+            onDrop={rerouteThroughCoordinate}
+            onPreview={previewRouteThroughCoordinate}
+          />
+        )}
         <PointSelectionHandler
           enabled={planningStage === 'start' || planningStage === 'end'}
           onSelect={selectPointRouteCoordinate}
@@ -624,12 +777,15 @@ export function BikeMap({
       </p>
 
       <PointRoutePlanner
-        distanceKm={pointToPointRoute?.distanceKm ?? null}
+        distanceKm={(dragRoutePreview ?? pointToPointRoute)?.distanceKm ?? null}
         errorKey={pointRouteErrorKey}
+        hasViaPoint={routeViaPoint !== null}
         stage={planningStage}
         onActivate={activatePointRoutePlanning}
         onCancel={cancelPointRoutePlanning}
+        onRemoveViaPoint={removeRouteViaPoint}
         onStartOver={startPointRouteOver}
+        onChangeDestination={changePointRouteDestination}
       />
 
       {planningStage === 'inactive' && (
@@ -769,4 +925,108 @@ function ViewportRouteTracker({
   }, [updateVisibleRoutes])
 
   return null
+}
+
+/** Capture route gestures before Leaflet starts panning (including touch gestures). */
+function RouteDragController({
+  route,
+  onDrop,
+  onPreview,
+}: {
+  route: PointToPointRoute
+  onDrop: (coordinate: [number, number]) => void
+  onPreview: (coordinate: [number, number] | null) => void
+}) {
+  const map = useMap()
+  const [preview, setPreview] = useState<[number, number] | null>(null)
+
+  useEffect(() => {
+    const container = map.getContainer()
+    let gesture: { pointerId: number; x: number; y: number } | null = null
+    let restoreDragging = false
+    let restoreTouchZoom = false
+
+    const finish = () => {
+      gesture = null
+      if (restoreDragging) map.dragging.enable()
+      if (restoreTouchZoom) map.touchZoom.enable()
+      restoreDragging = false
+      restoreTouchZoom = false
+      setPreview(null)
+      onPreview(null)
+    }
+    const start = (event: PointerEvent) => {
+      if (gesture || !event.isPrimary || event.button !== 0) return
+      if (event.target instanceof Element &&
+        event.target.closest('.leaflet-marker-icon, .leaflet-control')) return
+      const point = map.mouseEventToContainerPoint(event)
+      const points = route.coordinates.map((coordinate) =>
+        map.latLngToContainerPoint(coordinate),
+      )
+      const hitsRoute = points.slice(1).some((end, index) => {
+        const startPoint = points[index]
+        const dx = end.x - startPoint.x
+        const dy = end.y - startPoint.y
+        const lengthSquared = dx * dx + dy * dy
+        const fraction = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1,
+          ((point.x - startPoint.x) * dx + (point.y - startPoint.y) * dy) / lengthSquared,
+        ))
+        return Math.hypot(point.x - startPoint.x - fraction * dx,
+          point.y - startPoint.y - fraction * dy) <= 12
+      })
+      if (!hitsRoute) return
+      gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+      restoreDragging = map.dragging.enabled()
+      restoreTouchZoom = map.touchZoom.enabled()
+      map.dragging.disable()
+      map.touchZoom.disable()
+      container.setPointerCapture(event.pointerId)
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const move = (event: PointerEvent) => {
+      if (gesture?.pointerId !== event.pointerId) return
+      const coordinate = map.mouseEventToLatLng(event)
+      setPreview([coordinate.lat, coordinate.lng])
+      onPreview([coordinate.lat, coordinate.lng])
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const end = (event: PointerEvent) => {
+      if (gesture?.pointerId !== event.pointerId) return
+      const moved = Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 5
+      const coordinate = map.mouseEventToLatLng(event)
+      finish()
+      if (container.hasPointerCapture(event.pointerId)) container.releasePointerCapture(event.pointerId)
+      event.preventDefault()
+      event.stopPropagation()
+      if (moved) onDrop([coordinate.lat, coordinate.lng])
+    }
+    const cancel = () => finish()
+    container.addEventListener('pointerdown', start, true)
+    container.addEventListener('pointermove', move, true)
+    container.addEventListener('pointerup', end, true)
+    container.addEventListener('pointercancel', cancel)
+    container.addEventListener('lostpointercapture', cancel)
+    return () => {
+      container.removeEventListener('pointerdown', start, true)
+      container.removeEventListener('pointermove', move, true)
+      container.removeEventListener('pointerup', end, true)
+      container.removeEventListener('pointercancel', cancel)
+      container.removeEventListener('lostpointercapture', cancel)
+      if (gesture && container.hasPointerCapture(gesture.pointerId)) {
+        container.releasePointerCapture(gesture.pointerId)
+      }
+      finish()
+    }
+  }, [map, onDrop, onPreview, route])
+
+  return preview ? (
+    <CircleMarker
+      center={preview}
+      interactive={false}
+      radius={10}
+      pathOptions={{ color: '#e11d48', fillColor: '#ffffff', fillOpacity: 1, weight: 3 }}
+    />
+  ) : null
 }

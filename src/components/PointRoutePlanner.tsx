@@ -9,18 +9,24 @@ interface PointRoutePlannerProps {
   stage: PointRoutePlanningStage
   distanceKm: number | null
   errorKey: string | null
+  hasViaPoint: boolean
   onActivate: () => void
   onCancel: () => void
   onStartOver: () => void
+  onChangeDestination: () => void
+  onRemoveViaPoint: () => void
 }
 
 export function PointRoutePlanner({
   stage,
   distanceKm,
   errorKey,
+  hasViaPoint,
   onActivate,
   onCancel,
   onStartOver,
+  onChangeDestination,
+  onRemoveViaPoint,
 }: PointRoutePlannerProps) {
   const { t, i18n } = useTranslation()
   const language = getSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
@@ -91,7 +97,12 @@ export function PointRoutePlanner({
           </p>
           {!isComplete && (
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              {t('pointRoute.snapHelp')}
+              {t(stage === 'start' ? 'pointRoute.startSnapHelp' : errorKey ? 'pointRoute.retryDestinationHelp' : 'pointRoute.snapHelp')}
+            </p>
+          )}
+          {isComplete && (
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              {t('pointRoute.dragHelp')}
             </p>
           )}
         </div>
@@ -121,6 +132,25 @@ export function PointRoutePlanner({
         >
           {t(errorKey)}
         </p>
+      )}
+      {(isComplete || (stage === 'end' && errorKey)) && (
+        <button
+          className="mt-2 inline-flex items-center gap-1.5 rounded-xl border border-stone-200 px-3 py-2 text-xs font-extrabold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-emerald-700 dark:border-slate-700 dark:text-emerald-300 dark:hover:bg-slate-800"
+          type="button"
+          onClick={onChangeDestination}
+        >
+          <Flag aria-hidden="true" size={14} />
+          {t('pointRoute.changeDestination')}
+        </button>
+      )}
+      {isComplete && hasViaPoint && (
+        <button
+          className="mt-2 text-xs font-extrabold text-emerald-800 hover:text-emerald-950 focus-visible:outline-2 focus-visible:outline-emerald-700 dark:text-emerald-300 dark:hover:text-emerald-200"
+          type="button"
+          onClick={onRemoveViaPoint}
+        >
+          {t('pointRoute.removeDetour')}
+        </button>
       )}
     </section>
   )
