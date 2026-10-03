@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Feature, Geometry, Point } from 'geojson'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import {
   circleMarker,
   latLngBounds,
@@ -24,13 +26,20 @@ import type {
 } from '../utils/loadBikeData'
 import { findNearbyAmenities } from '../utils/routePois'
 import {
+  formatNumber,
+  getLocalizedOsmName,
+  getRouteLabels,
+  getSupportedLanguage,
+  translateDifficulty,
+} from '../utils/localization'
+import type { SupportedLanguage } from '../i18n'
+import {
   DEFAULT_ROUTE_FILTERS,
   filterRoutes,
   type RouteFiltersState,
 } from '../utils/routeFilters'
 import {
   ALL_INFRASTRUCTURE_TYPES,
-  INFRASTRUCTURE_META,
   classifyInfrastructureFeature,
   countInfrastructureTypes,
   type InfrastructureType,
@@ -74,23 +83,38 @@ function getPathStyle(
 function bindFeatureTooltip(
   feature: Feature<Geometry, BikePathProperties>,
   layer: Layer,
+  t: TFunction,
+  language: SupportedLanguage,
 ) {
   const properties = feature.properties ?? {}
   const infrastructureType = classifyInfrastructureFeature(feature)
   const isWater = infrastructureType === 'fountain'
   const isRestroom = infrastructureType === 'restroom'
   const name =
-    properties.name ??
-    properties['name:he'] ??
-    (isWater ? 'Drinking water' : isRestroom ? 'Public restroom' : 'Unnamed path')
+    getLocalizedOsmName(properties, language) ??
+    (isWater
+      ? t('amenities.drinkingWater')
+      : isRestroom
+        ? t('amenities.publicRestroom')
+        : t('map.unnamedPath'))
   const tooltip = document.createElement('div')
   const title = document.createElement('strong')
   const typeLabel = document.createElement('span')
 
   title.textContent = name
-  typeLabel.textContent = infrastructureType
-      ? INFRASTRUCTURE_META[infrastructureType].label
-      : 'Bike infrastructure'
+  const layerKey =
+    infrastructureType === 'dedicated'
+      ? 'layers.dedicated'
+      : infrastructureType === 'on-road'
+        ? 'layers.onRoad'
+        : infrastructureType === 'other'
+          ? 'layers.other'
+          : infrastructureType === 'fountain'
+            ? 'layers.fountain'
+            : infrastructureType === 'restroom'
+              ? 'layers.restroom'
+              : 'map.bikeInfrastructure'
+  typeLabel.textContent = t(layerKey)
   typeLabel.className = 'bike-path-tooltip__type'
   tooltip.className = 'bike-path-tooltip'
   tooltip.append(title, typeLabel)
@@ -126,6 +150,8 @@ export function BikeMap({
   onClearRoute,
   onToggleRoutesPanel,
 }: BikeMapProps) {
+  const { t, i18n } = useTranslation()
+  const language = getSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
   const [activeTypes, setActiveTypes] = useState<InfrastructureType[]>(
     ALL_INFRASTRUCTURE_TYPES,
   )
@@ -178,7 +204,7 @@ export function BikeMap({
     () => countInfrastructureTypes(data.features),
     [data],
   )
-  const geoJsonKey = activeTypes.join('-') || 'no-infrastructure'
+  const geoJsonKey = `${activeTypes.join('-') || 'no-infrastructure'}-${language}`
   const visibleRouteIds = new Set(visibleRoutes.map((route) => route.id))
   const displayedRoutes = filteredRoutes.filter((route) =>
     visibleRouteIds.has(route.id),
@@ -221,8 +247,8 @@ export function BikeMap({
 
   return (
     <section
-      aria-label="Dan region bike infrastructure map"
-      className="relative isolate z-0 min-h-0 w-full flex-1 overflow-hidden bg-stone-200"
+      aria-label={t('map.ariaLabel')}
+      className="relative isolate z-0 min-h-0 w-full flex-1 overflow-hidden bg-stone-200 dark:bg-slate-900"
     >
       <MapContainer
         center={MAP_CENTER}
@@ -243,12 +269,15 @@ export function BikeMap({
             const type = classifyInfrastructureFeature(feature)
             return type !== null && activeTypeSet.has(type)
           }}
-          onEachFeature={bindFeatureTooltip}
+          onEachFeature={(feature, layer) =>
+            bindFeatureTooltip(feature, layer, t, language)
+          }
           pointToLayer={createAmenityMarker}
           style={getPathStyle}
         />
         {orderedRoutes.map((route) => {
           const isSelected = route.id === selectedRoute?.id
+          const labels = getRouteLabels(route, t)
 
           return (
             <Polyline
@@ -263,9 +292,12 @@ export function BikeMap({
               positions={route.coordinates}
             >
               <Tooltip direction="top" sticky>
-                <strong>{route.title}</strong>
+                <strong>{labels.title}</strong>
                 <br />
-                {route.distanceKm} km · {route.difficulty}
+                {t('units.kilometers', {
+                  value: formatNumber(route.distanceKm, language),
+                })}{' '}
+                · {translateDifficulty(route.difficulty, t)}
               </Tooltip>
             </Polyline>
           )
@@ -283,7 +315,11 @@ export function BikeMap({
               radius={8}
             >
               <Tooltip direction="top">
-                {selectedRoute.isRoundTrip ? 'Start & finish' : `Start: ${selectedRoute.startPoint}`}
+                {selectedRoute.isRoundTrip
+                  ? t('map.startAndFinish')
+                  : t('map.start', {
+                      point: getRouteLabels(selectedRoute, t).startPoint,
+                    })}
               </Tooltip>
             </CircleMarker>
             {!selectedRoute.isRoundTrip && (
@@ -297,7 +333,11 @@ export function BikeMap({
                 }}
                 radius={8}
               >
-                <Tooltip direction="top">Finish: {selectedRoute.endPoint}</Tooltip>
+                <Tooltip direction="top">
+                  {t('map.finish', {
+                    point: getRouteLabels(selectedRoute, t).endPoint,
+                  })}
+                </Tooltip>
               </CircleMarker>
             )}
           </>

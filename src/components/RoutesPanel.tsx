@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   Toilet,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { BikeRoute } from '../data/routes'
 import type { RouteAmenity } from '../utils/routePois'
 import {
@@ -19,6 +20,14 @@ import {
   DEFAULT_ROUTE_FILTERS,
   type RouteFiltersState,
 } from '../utils/routeFilters'
+import {
+  formatNumber,
+  getLocalizedAmenityName,
+  getRouteLabels,
+  getSupportedLanguage,
+  translateCity,
+  translateDifficulty,
+} from '../utils/localization'
 
 interface RoutesPanelProps {
   routes: BikeRoute[]
@@ -47,6 +56,9 @@ export function RoutesPanel({
   onFiltersChange,
   onToggle,
 }: RoutesPanelProps) {
+  const { t, i18n } = useTranslation()
+  const language = getSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
+
   if (isCollapsed) {
     return (
       <button
@@ -57,8 +69,10 @@ export function RoutesPanel({
       >
         <MapPinned aria-hidden="true" size={18} />
         {selectedRoute
-          ? selectedRoute.title
-          : `${routes.length} ${routes.length === 1 ? 'route' : 'routes'} in view`}
+          ? getRouteLabels(selectedRoute, t).title
+          : t('routes.inView', {
+              count: formatNumber(routes.length, language, 0),
+            })}
       </button>
     )
   }
@@ -69,8 +83,8 @@ export function RoutesPanel({
 
   return (
     <aside
-      aria-label="Mapped bike routes"
-      className="absolute bottom-3 left-3 right-3 z-[1200] flex max-h-[72%] flex-col overflow-hidden rounded-3xl border border-white/70 bg-[#fbfbf8]/97 shadow-2xl backdrop-blur sm:bottom-auto sm:left-auto sm:right-5 sm:top-5 sm:max-h-[calc(100%-2.5rem)] sm:w-[23rem]"
+      aria-label={t('routes.panelLabel')}
+      className="absolute bottom-3 left-3 right-3 z-[1200] flex max-h-[72%] flex-col overflow-hidden rounded-3xl border border-white/70 bg-[#fbfbf8]/97 shadow-2xl backdrop-blur dark:border-slate-700/80 dark:bg-slate-900/97 sm:bottom-auto sm:left-auto sm:right-5 sm:top-5 sm:max-h-[calc(100%-2.5rem)] sm:w-[23rem]"
     >
       {selectedRoute ? (
         <RouteDetails
@@ -116,6 +130,8 @@ function RouteList({
   onFiltersChange,
   onSelectRoute,
 }: RouteListProps) {
+  const { t, i18n } = useTranslation()
+  const language = getSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
   const activeFilterCount = countActiveRouteFilters(filters)
 
   return (
@@ -123,10 +139,13 @@ function RouteList({
       <div className="flex items-center justify-between gap-4 border-b border-stone-200 px-5 py-4">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-800">
-            {routes.length} in view · {totalRouteCount} matching
+            {t('routes.matching', {
+              visible: formatNumber(routes.length, language, 0),
+              total: formatNumber(totalRouteCount, language, 0),
+            })}
           </p>
           <h2 className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-950">
-            Generated routes
+            {t('routes.heading')}
           </h2>
         </div>
         <CollapseButton onClick={onCollapse} />
@@ -150,24 +169,28 @@ function RouteList({
               const restrooms = amenities.filter(
                 (amenity) => amenity.type === 'restroom',
               ).length
+              const labels = getRouteLabels(route, t)
 
               return (
                 <button
                   key={route.id}
-                  className="group w-full rounded-2xl border border-stone-200 bg-white p-4 text-left transition hover:border-emerald-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+                  className="group w-full rounded-2xl border border-stone-200 bg-white p-4 text-start transition hover:border-emerald-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
                   type="button"
                   onClick={() => onSelectRoute(route)}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="font-bold text-slate-950">{route.title}</h3>
+                      <h3 className="font-bold text-slate-950">{labels.title}</h3>
                       <p className="mt-1 text-sm font-semibold text-slate-500">
-                        {route.distanceKm} km · {route.difficulty}
+                        {t('units.kilometers', {
+                          value: formatNumber(route.distanceKm, language),
+                        })}{' '}
+                        · {translateDifficulty(route.difficulty, t)}
                       </p>
                     </div>
                     <ChevronRight
                       aria-hidden="true"
-                      className="mt-1 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-emerald-700"
+                      className="mt-1 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-emerald-700 rtl:rotate-180"
                       size={19}
                     />
                   </div>
@@ -177,26 +200,26 @@ function RouteList({
                         key={city}
                         className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
                       >
-                        {city}
+                        {translateCity(city, t)}
                       </span>
                     ))}
                     <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
                       <Droplets aria-hidden="true" size={12} />
-                      {fountains}
+                      {formatNumber(fountains, language, 0)}
                     </span>
                     <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
                       <Toilet aria-hidden="true" size={12} />
-                      {restrooms}
+                      {formatNumber(restrooms, language, 0)}
                     </span>
                     {route.isRoundTrip && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                         <RefreshCw aria-hidden="true" size={12} />
-                        Round trip
+                        {t('routes.roundTrip')}
                       </span>
                     )}
                     {route.usesRepeatedSegments && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                        Retraces path
+                        {t('routes.retracesPath')}
                       </span>
                     )}
                   </div>
@@ -207,15 +230,16 @@ function RouteList({
         ) : (
           <div className="rounded-2xl border border-dashed border-stone-300 bg-white px-5 py-8 text-center">
             <MapPinned aria-hidden="true" className="mx-auto text-slate-400" size={24} />
-            <h3 className="mt-3 font-bold text-slate-800">No mapped routes here</h3>
+            <h3 className="mt-3 font-bold text-slate-800">
+              {t('routes.noRoutesTitle')}
+            </h3>
             <p className="mt-1 text-sm leading-5 text-slate-500">
-              Pan the map or loosen the filters to discover more routes.
+              {t('routes.noRoutesBody')}
             </p>
           </div>
         )}
         <p className="px-2 pb-1 pt-4 text-xs leading-5 text-slate-500">
-          Routes are generated only from connected infrastructure in the current
-          OpenStreetMap export.
+          {t('routes.sourceNotice')}
         </p>
       </div>
     </>
@@ -235,6 +259,8 @@ function RouteFilters({
   routeCount,
   onChange,
 }: RouteFiltersProps) {
+  const { t, i18n } = useTranslation()
+  const language = getSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
   const selectClassName =
     'mt-1.5 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 focus-visible:outline-2 focus-visible:outline-emerald-700'
   const inputClassName =
@@ -250,17 +276,21 @@ function RouteFilters({
     <details className="rounded-2xl border border-stone-200 bg-stone-50">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 focus-visible:outline-2 focus-visible:outline-emerald-700">
         <SlidersHorizontal aria-hidden="true" size={16} />
-        Filter {routeCount} generated routes
+        {t('routes.filterSummary', {
+          count: formatNumber(routeCount, language, 0),
+        })}
         {activeFilterCount > 0 && (
-          <span className="ml-auto rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] text-white">
-            {activeFilterCount} active
+          <span className="ms-auto rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] text-white">
+            {t('routes.activeFilters', {
+              count: formatNumber(activeFilterCount, language, 0),
+            })}
           </span>
         )}
       </summary>
 
       <div className="border-t border-stone-200 p-3">
         <label className="block text-xs font-bold text-slate-500">
-          Sort routes
+          {t('routes.sortLabel')}
           <select
             className={selectClassName}
             value={filters.sort}
@@ -271,26 +301,26 @@ function RouteFilters({
               })
             }
           >
-            <option value="length-desc">Length: longest first</option>
-            <option value="length-asc">Length: shortest first</option>
-            <option value="difficulty-asc">Difficulty: easy first</option>
-            <option value="difficulty-desc">Difficulty: hard first</option>
+            <option value="length-desc">{t('routes.sortLengthDesc')}</option>
+            <option value="length-asc">{t('routes.sortLengthAsc')}</option>
+            <option value="difficulty-asc">{t('routes.sortDifficultyAsc')}</option>
+            <option value="difficulty-desc">{t('routes.sortDifficultyDesc')}</option>
           </select>
         </label>
 
         <fieldset className="mt-3">
           <legend className="text-xs font-bold text-slate-500">
-            Distance range (km)
+            {t('routes.distanceRange')}
           </legend>
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs font-semibold text-slate-500">
-              Minimum
+              {t('routes.minimum')}
               <input
                 aria-invalid={hasInvalidDistanceRange}
                 className={inputClassName}
                 inputMode="decimal"
                 min={0}
-                placeholder="No minimum"
+                placeholder={t('routes.noMinimum')}
                 step={0.1}
                 type="number"
                 value={filters.minDistanceKm ?? ''}
@@ -303,13 +333,13 @@ function RouteFilters({
               />
             </label>
             <label className="text-xs font-semibold text-slate-500">
-              Maximum
+              {t('routes.maximum')}
               <input
                 aria-invalid={hasInvalidDistanceRange}
                 className={inputClassName}
                 inputMode="decimal"
                 min={0}
-                placeholder="No maximum"
+                placeholder={t('routes.noMaximum')}
                 step={0.1}
                 type="number"
                 value={filters.maxDistanceKm ?? ''}
@@ -323,8 +353,8 @@ function RouteFilters({
             </label>
           </div>
           {hasInvalidDistanceRange && (
-            <p className="mt-1.5 text-xs font-semibold text-rose-700" role="alert">
-              Minimum distance must not exceed maximum distance.
+            <p className="mt-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300" role="alert">
+              {t('routes.invalidRange')}
             </p>
           )}
         </fieldset>
@@ -341,10 +371,10 @@ function RouteFilters({
           <span>
             <span className="flex items-center gap-1.5 text-sm font-bold text-slate-700">
               <RefreshCw aria-hidden="true" size={14} />
-              Generate round trips
+              {t('routes.generateRoundTrips')}
             </span>
             <span className="mt-0.5 block text-xs leading-5 text-slate-500">
-              Combine connected paths into loops that start and finish together.
+              {t('routes.generateRoundTripsHelp')}
             </span>
           </span>
         </label>
@@ -367,17 +397,17 @@ function RouteFilters({
           />
           <span>
             <span className="text-sm font-bold text-slate-700">
-              Allow repeated return paths
+              {t('routes.allowRetracing')}
             </span>
             <span className="mt-0.5 block text-xs leading-5 text-slate-500">
-              Include out-and-back rides that return along the same path.
+              {t('routes.allowRetracingHelp')}
             </span>
           </span>
         </label>
 
         <div className="grid grid-cols-2 gap-2">
           <label className="mt-2 text-xs font-bold text-slate-500">
-            Difficulty
+            {t('routes.difficultyLabel')}
             <select
               className={selectClassName}
               value={filters.difficulty}
@@ -388,14 +418,14 @@ function RouteFilters({
                 })
               }
             >
-              <option value="all">Any difficulty</option>
-              <option value="Easy">Easy</option>
-              <option value="Moderate">Moderate</option>
-              <option value="Hard">Hard</option>
+              <option value="all">{t('routes.anyDifficulty')}</option>
+              <option value="Easy">{t('difficulty.easy')}</option>
+              <option value="Moderate">{t('difficulty.moderate')}</option>
+              <option value="Hard">{t('difficulty.hard')}</option>
             </select>
           </label>
           <label className="mt-2 text-xs font-bold text-slate-500">
-            City
+            {t('routes.cityLabel')}
             <select
               className={selectClassName}
               value={filters.city}
@@ -406,25 +436,29 @@ function RouteFilters({
                 })
               }
             >
-              <option value="all">All cities</option>
-              <option value="Tel Aviv">Tel Aviv</option>
-              <option value="Ramat Gan">Ramat Gan</option>
-              <option value="Givatayim">Givatayim</option>
+              <option value="all">{t('routes.allCities')}</option>
+              <option value="Tel Aviv">{t('cities.telAviv')}</option>
+              <option value="Ramat Gan">{t('cities.ramatGan')}</option>
+              <option value="Givatayim">{t('cities.givatayim')}</option>
             </select>
           </label>
         </div>
 
-        <div className="mt-3 flex gap-2" role="group" aria-label="Required amenities">
+        <div
+          className="mt-3 flex gap-2"
+          role="group"
+          aria-label={t('routes.requiredAmenities')}
+        >
           <AmenityToggle
             active={filters.hasWater}
             icon={<Droplets aria-hidden="true" size={14} />}
-            label="Water"
+            label={t('routes.water')}
             onClick={() => onChange({ ...filters, hasWater: !filters.hasWater })}
           />
           <AmenityToggle
             active={filters.hasRestroom}
             icon={<Toilet aria-hidden="true" size={14} />}
-            label="Restrooms"
+            label={t('routes.restrooms')}
             onClick={() =>
               onChange({ ...filters, hasRestroom: !filters.hasRestroom })
             }
@@ -437,7 +471,7 @@ function RouteFilters({
             type="button"
             onClick={() => onChange(DEFAULT_ROUTE_FILTERS)}
           >
-            Clear all filters
+            {t('routes.clearFilters')}
           </button>
         )}
       </div>
@@ -481,6 +515,10 @@ interface RouteDetailsProps {
 }
 
 function RouteDetails({ route, amenities, onBack, onCollapse }: RouteDetailsProps) {
+  const { t, i18n } = useTranslation()
+  const language = getSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
+  const labels = getRouteLabels(route, t)
+
   return (
     <>
       <div className="flex items-center justify-between gap-3 border-b border-stone-200 px-4 py-3">
@@ -489,8 +527,8 @@ function RouteDetails({ route, amenities, onBack, onCollapse }: RouteDetailsProp
           type="button"
           onClick={onBack}
         >
-          <ArrowLeft aria-hidden="true" size={17} />
-          All routes
+          <ArrowLeft aria-hidden="true" className="rtl:rotate-180" size={17} />
+          {t('routes.allRoutes')}
         </button>
         <CollapseButton onClick={onCollapse} />
       </div>
@@ -502,33 +540,57 @@ function RouteDetails({ route, amenities, onBack, onCollapse }: RouteDetailsProp
               key={city}
               className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800"
             >
-              {city}
+              {translateCity(city, t)}
             </span>
           ))}
         </div>
         <h2 className="mt-3 text-2xl font-extrabold tracking-[-0.04em] text-slate-950">
-          {route.title}
+          {labels.title}
         </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{route.description}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          {labels.description}
+        </p>
 
         <dl className="mt-5 grid grid-cols-3 gap-2">
-          <RouteStat icon={<RouteIcon size={16} />} label="Length" value={`${route.distanceKm} km`} />
-          <RouteStat icon={<Gauge size={16} />} label="Difficulty" value={route.difficulty} />
-          <RouteStat icon={<MapPinned size={16} />} label="Dedicated" value={`${route.continuityScore}%`} />
+          <RouteStat
+            icon={<RouteIcon size={16} />}
+            label={t('routes.length')}
+            value={t('units.kilometers', {
+              value: formatNumber(route.distanceKm, language),
+            })}
+          />
+          <RouteStat
+            icon={<Gauge size={16} />}
+            label={t('routes.difficultyLabel')}
+            value={translateDifficulty(route.difficulty, t)}
+          />
+          <RouteStat
+            icon={<MapPinned size={16} />}
+            label={t('routes.dedicated')}
+            value={`${formatNumber(route.continuityScore, language, 0)}%`}
+          />
         </dl>
 
         <div className="mt-5 rounded-2xl border border-stone-200 bg-white p-4">
           {route.isRoundTrip ? (
             <LocationRow
               icon={<RefreshCw size={16} />}
-              label="Start & finish"
-              value={route.startPoint}
+              label={t('routes.startAndFinish')}
+              value={labels.startPoint}
             />
           ) : (
             <>
-              <LocationRow icon={<MapPin size={16} />} label="Start" value={route.startPoint} />
-              <div className="my-3 ml-2 h-5 border-l border-dashed border-stone-300" />
-              <LocationRow icon={<Flag size={16} />} label="Finish" value={route.endPoint} />
+              <LocationRow
+                icon={<MapPin size={16} />}
+                label={t('routes.start')}
+                value={labels.startPoint}
+              />
+              <div className="my-3 ms-2 h-5 border-s border-dashed border-stone-300" />
+              <LocationRow
+                icon={<Flag size={16} />}
+                label={t('routes.finish')}
+                value={labels.endPoint}
+              />
             </>
           )}
         </div>
@@ -537,9 +599,11 @@ function RouteDetails({ route, amenities, onBack, onCollapse }: RouteDetailsProp
           <div className="flex items-center justify-between gap-3">
             <h3 id="nearby-amenities-heading" className="flex items-center gap-2 font-extrabold text-slate-950">
               <Droplets aria-hidden="true" className="text-sky-600" size={18} />
-              Amenities nearby
+              {t('routes.nearbyAmenities')}
             </h3>
-            <span className="text-xs font-bold text-slate-400">Within 200 m</span>
+            <span className="text-xs font-bold text-slate-400">
+              {t('routes.withinDistance')}
+            </span>
           </div>
 
           {amenities.length > 0 ? (
@@ -552,29 +616,32 @@ function RouteDetails({ route, amenities, onBack, onCollapse }: RouteDetailsProp
                     <Toilet aria-hidden="true" className="shrink-0 text-violet-600" size={15} />
                   )}
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
-                    {amenity.name}
+                    {getLocalizedAmenityName(amenity, language, t)}
                   </span>
                   <span className={`shrink-0 text-xs font-bold ${amenity.type === 'fountain' ? 'text-sky-700' : 'text-violet-700'}`}>
-                    {amenity.distanceMeters} m
+                    {t('units.meters', {
+                      value: formatNumber(amenity.distanceMeters, language, 0),
+                    })}
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
             <p className="mt-3 rounded-2xl border border-dashed border-stone-300 bg-white px-4 py-5 text-sm text-slate-500">
-              No mapped water fountains or restrooms were found near this route.
+              {t('routes.noAmenities')}
             </p>
           )}
           {amenities.length > 6 && (
             <p className="mt-2 text-xs font-semibold text-slate-500">
-              Showing the closest 6 of {amenities.length} amenities.
+              {t('routes.showingAmenities', {
+                count: formatNumber(amenities.length, language, 0),
+              })}
             </p>
           )}
         </section>
 
         <p className="mt-6 text-xs leading-5 text-slate-500">
-          Built from connected OpenStreetMap geometry. Check current street
-          conditions before riding.
+          {t('routes.safetyNotice')}
         </p>
       </div>
     </>
@@ -582,9 +649,11 @@ function RouteDetails({ route, amenities, onBack, onCollapse }: RouteDetailsProp
 }
 
 function CollapseButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation()
+
   return (
     <button
-      aria-label="Collapse routes panel"
+      aria-label={t('routes.collapsePanel')}
       className="flex size-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-slate-500 transition hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
       type="button"
       onClick={onClick}

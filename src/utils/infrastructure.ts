@@ -18,13 +18,13 @@ export const ALL_INFRASTRUCTURE_TYPES: InfrastructureType[] = [
 
 export const INFRASTRUCTURE_META: Record<
   InfrastructureType,
-  { label: string; color: string; dashed?: boolean; dot?: boolean }
+  { color: string; dashed?: boolean; dot?: boolean }
 > = {
-  dedicated: { label: 'Dedicated paths', color: '#059669' },
-  'on-road': { label: 'On-road lanes', color: '#0284c7', dashed: true },
-  other: { label: 'Other paths', color: '#d97706' },
-  fountain: { label: 'Water fountains', color: '#0284c7', dot: true },
-  restroom: { label: 'Restrooms', color: '#7c3aed', dot: true },
+  dedicated: { color: '#059669' },
+  'on-road': { color: '#0284c7', dashed: true },
+  other: { color: '#d97706' },
+  fountain: { color: '#0284c7', dot: true },
+  restroom: { color: '#7c3aed', dot: true },
 }
 
 export function hasBikeLane(value: unknown): boolean {

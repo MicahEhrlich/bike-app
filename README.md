@@ -45,3 +45,10 @@ outbound and repeated return legs in the displayed distance.
 Available route filters include distance, estimated difficulty, city, nearby
 drinking water, and nearby public restrooms. The visible list also follows the
 current map viewport.
+
+The header theme control switches between light and dark modes. The preference
+is stored locally, with the operating-system preference used on the first visit.
+
+The language control switches between English and Hebrew using i18next. Hebrew
+mode applies right-to-left layout and prefers Hebrew OpenStreetMap names; the
+device-local language choice is restored on later visits.

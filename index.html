@@ -9,6 +9,23 @@
     />
     <meta name="theme-color" content="#064e3b" />
     <title>MetroBike TLV</title>
+    <script>
+      try {
+        const savedTheme = localStorage.getItem('metrobike-theme')
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark)
+        document.documentElement.classList.toggle('dark', isDark)
+        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light'
+        const savedLanguage = localStorage.getItem('metrobike-language')
+        const language = savedLanguage === 'he' || savedLanguage === 'en'
+          ? savedLanguage
+          : navigator.language.toLowerCase().startsWith('he') ? 'he' : 'en'
+        document.documentElement.lang = language
+        document.documentElement.dir = language === 'he' ? 'rtl' : 'ltr'
+      } catch {
+        // Local storage can be unavailable in privacy-restricted contexts.
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

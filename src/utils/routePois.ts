@@ -6,7 +6,9 @@ export type RouteAmenityType = 'fountain' | 'restroom'
 
 export interface RouteAmenity {
   id: string
-  name: string
+  name?: string
+  nameHe?: string
+  nameEn?: string
   type: RouteAmenityType
   coordinates: RouteCoordinate
   distanceMeters: number
@@ -97,10 +99,15 @@ export function findNearbyAmenities(
       return [
         {
           id: String(feature.id ?? `${type}-${index}`),
-          name:
-            (typeof properties.name === 'string' && properties.name) ||
-            (typeof properties['name:he'] === 'string' && properties['name:he']) ||
-            (type === 'fountain' ? 'Drinking water' : 'Public restroom'),
+          name: typeof properties.name === 'string' ? properties.name : undefined,
+          nameHe:
+            typeof properties['name:he'] === 'string'
+              ? properties['name:he']
+              : undefined,
+          nameEn:
+            typeof properties['name:en'] === 'string'
+              ? properties['name:en']
+              : undefined,
           type,
           coordinates,
           distanceMeters: Math.round(distanceMeters),

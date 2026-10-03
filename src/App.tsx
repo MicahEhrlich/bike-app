@@ -1,16 +1,21 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Bike, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Bike, Languages, Moon, RefreshCw, Sun } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { BikeMap } from './components/BikeMap'
 import type { BikeRoute } from './data/routes'
+import { LANGUAGE_STORAGE_KEY } from './i18n'
 import {
   loadBikeData,
   type BikePathCollection,
 } from './utils/loadBikeData'
+import { formatNumber, getSupportedLanguage } from './utils/localization'
 
 type LoadState =
   | { status: 'loading' }
   | { status: 'ready'; data: BikePathCollection }
-  | { status: 'error'; message: string }
+  | { status: 'error' }
+
+type Theme = 'light' | 'dark'
 
 function getMapFeatureCounts(data: BikePathCollection) {
   return data.features.reduce(
@@ -44,6 +49,11 @@ function getMapFeatureCounts(data: BikePathCollection) {
 }
 
 function App() {
+  const { t, i18n } = useTranslation()
+  const language = getSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
+  const [theme, setTheme] = useState<Theme>(() =>
+    document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+  )
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading' })
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [selectedRoute, setSelectedRoute] = useState<BikeRoute | null>(null)
@@ -54,20 +64,44 @@ function App() {
 
     loadBikeData(controller.signal)
       .then((data) => setLoadState({ status: 'ready', data }))
-      .catch((error: unknown) => {
+      .catch(() => {
         if (controller.signal.aborted) return
 
-        setLoadState({
-          status: 'error',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'An unexpected error occurred while loading the map data.',
-        })
+        setLoadState({ status: 'error' })
       })
 
     return () => controller.abort()
   }, [loadAttempt])
+
+  useEffect(() => {
+    const isDark = theme === 'dark'
+    document.documentElement.classList.toggle('dark', isDark)
+    document.documentElement.style.colorScheme = theme
+    try {
+      localStorage.setItem('metrobike-theme', theme)
+    } catch {
+      // The theme still works when storage is unavailable.
+    }
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', isDark ? '#020617' : '#064e3b')
+  }, [theme])
+
+  useEffect(() => {
+    const direction = language === 'he' ? 'rtl' : 'ltr'
+    document.documentElement.lang = language
+    document.documentElement.dir = direction
+    document.title = t('app.documentTitle')
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute('content', t('app.documentDescription'))
+
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, language)
+    } catch {
+      // The language still works when storage is unavailable.
+    }
+  }, [language, t])
 
   const retryLoad = () => {
     setLoadState({ status: 'loading' })
@@ -83,45 +117,80 @@ function App() {
   }
 
   return (
-    <div className="flex h-svh min-h-[36rem] flex-col overflow-hidden bg-[#f7f7f3] text-slate-900">
-      <header className="relative z-[2000] shrink-0 border-b border-stone-200 bg-[#f7f7f3]/95 shadow-sm backdrop-blur">
+    <div
+      className="flex h-svh min-h-[36rem] flex-col overflow-hidden bg-[#f7f7f3] text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100"
+      dir={language === 'he' ? 'rtl' : 'ltr'}
+    >
+      <header className="relative z-[2000] shrink-0 border-b border-stone-200 bg-[#f7f7f3]/95 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
         <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-900 text-white shadow-sm">
               <Bike aria-hidden="true" size={22} strokeWidth={2.25} />
             </span>
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-extrabold tracking-[-0.035em] text-slate-950 sm:text-xl">
-                MetroBike TLV
+              <h1 className="truncate text-lg font-extrabold tracking-[-0.035em] text-slate-950 dark:text-white sm:text-xl">
+                {t('app.brand')}
               </h1>
-              <p className="hidden text-sm text-slate-500 sm:block">
-                Bike infrastructure across the Dan region
+              <p className="hidden text-sm text-slate-500 dark:text-slate-400 sm:block">
+                {t('app.subtitle')}
               </p>
             </div>
           </div>
 
-          {mapCounts && (
-            <p
-              aria-live="polite"
-              className="shrink-0 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm sm:text-sm"
+          <div className="flex shrink-0 items-center gap-2">
+            {mapCounts && (
+              <p
+                aria-live="polite"
+                className="hidden rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 sm:block sm:text-sm"
+              >
+                <span>
+                  {t('app.pathsCount', {
+                    count: formatNumber(mapCounts.paths, language, 0),
+                  })}
+                </span>
+                <span className="hidden sm:inline">
+                  {' '}·{' '}
+                  {t('app.waterCount', {
+                    count: formatNumber(mapCounts.fountains, language, 0),
+                  })}{' '}
+                  ·{' '}
+                  {t('app.restroomsCount', {
+                    count: formatNumber(mapCounts.restrooms, language, 0),
+                  })}
+                </span>
+              </p>
+            )}
+            <button
+              aria-label={t('app.switchLanguageLabel')}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-white"
+              type="button"
+              onClick={() => void i18n.changeLanguage(language === 'he' ? 'en' : 'he')}
             >
-              <span>{mapCounts.paths.toLocaleString()} paths</span>
-              <span className="hidden sm:inline">
-                {' '}· {mapCounts.fountains.toLocaleString()} water ·{' '}
-                {mapCounts.restrooms.toLocaleString()} restrooms
-              </span>
-            </p>
-          )}
+              <Languages aria-hidden="true" size={15} />
+              {t('app.switchLanguage')}
+            </button>
+            <button
+              aria-label={t('app.switchTheme', {
+                theme: t(`app.${theme === 'dark' ? 'light' : 'dark'}`),
+              })}
+              aria-pressed={theme === 'dark'}
+              className="flex size-9 items-center justify-center rounded-full border border-stone-200 bg-white text-slate-600 shadow-sm transition hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-white"
+              title={t('app.switchTheme', {
+                theme: t(`app.${theme === 'dark' ? 'light' : 'dark'}`),
+              })}
+              type="button"
+              onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
+            >
+              {theme === 'dark' ? <Sun aria-hidden="true" size={17} /> : <Moon aria-hidden="true" size={17} />}
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="relative isolate z-0 flex min-h-0 flex-1">
         {loadState.status === 'loading' && <LoadingState />}
         {loadState.status === 'error' && (
-          <ErrorState
-            message={loadState.message}
-            onRetry={retryLoad}
-          />
+          <ErrorState onRetry={retryLoad} />
         )}
         {loadState.status === 'ready' && (
           <BikeMap
@@ -141,6 +210,7 @@ function App() {
 }
 
 function LoadingState() {
+  const { t } = useTranslation()
   return (
     <div
       aria-live="polite"
@@ -149,9 +219,11 @@ function LoadingState() {
     >
       <span className="size-10 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-700" />
       <div>
-        <p className="font-bold text-slate-900">Loading bike infrastructure</p>
-        <p className="mt-1 text-sm text-slate-500">
-          Preparing the Dan region map…
+        <p className="font-bold text-slate-900 dark:text-white">
+          {t('app.loadingTitle')}
+        </p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          {t('app.loadingBody')}
         </p>
       </div>
     </div>
@@ -159,28 +231,30 @@ function LoadingState() {
 }
 
 interface ErrorStateProps {
-  message: string
   onRetry: () => void
 }
 
-function ErrorState({ message, onRetry }: ErrorStateProps) {
+function ErrorState({ onRetry }: ErrorStateProps) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-1 items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md rounded-3xl border border-amber-200 bg-white p-7 text-center shadow-sm">
+      <div className="w-full max-w-md rounded-3xl border border-amber-200 bg-white p-7 text-center shadow-sm dark:border-amber-900 dark:bg-slate-900">
         <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
           <AlertTriangle aria-hidden="true" size={23} />
         </span>
-        <h2 className="mt-5 text-xl font-bold text-slate-950">
-          Map data could not be loaded
+        <h2 className="mt-5 text-xl font-bold text-slate-950 dark:text-white">
+          {t('app.errorTitle')}
         </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{message}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          {t('app.unknownError')}
+        </p>
         <button
           className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
           type="button"
           onClick={onRetry}
         >
           <RefreshCw aria-hidden="true" size={16} />
-          Try again
+          {t('app.retry')}
         </button>
       </div>
     </div>
