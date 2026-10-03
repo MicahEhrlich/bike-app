@@ -13,7 +13,8 @@ routes across Tel Aviv, Ramat Gan, and Givatayim.
 ```bash
 npm create vite@latest . -- --template react-ts
 npm install
-npm install tailwindcss @tailwindcss/vite lucide-react
+npm install tailwindcss @tailwindcss/vite lucide-react leaflet react-leaflet
+npm install -D @types/leaflet @types/geojson
 ```
 
 ## Run locally
@@ -29,5 +30,18 @@ npm run build
 npm run lint
 ```
 
-Route distances, continuity scores, and descriptions are illustrative mock data.
-They are not official navigation guidance.
+The app generates continuous route suggestions by joining compatible endpoints
+in `public/dan_bike_lanes.geojson`. Distance limits and enabled infrastructure
+layers rebuild those suggestions from the underlying geometry. Route lengths and
+amenity proximity are computed from that geometry. Difficulty, continuity, and
+city labels are estimates and the data may be incomplete, so the app is not
+navigation guidance.
+
+Round-trip mode detects closed cycles in the enabled infrastructure graph and
+combines multiple connected segments into routes whose start and finish match.
+An optional retracing mode also generates out-and-back rides, counting both the
+outbound and repeated return legs in the displayed distance.
+
+Available route filters include distance, estimated difficulty, city, nearby
+drinking water, and nearby public restrooms. The visible list also follows the
+current map viewport.
