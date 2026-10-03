@@ -28,6 +28,13 @@ import type {
 } from '../utils/loadBikeData'
 import { findNearbyAmenities } from '../utils/routePois'
 import {
+  buildBikeNetwork,
+  findShortestBikePath,
+  snapToBikeNetwork,
+  type NetworkSnap,
+  type PointToPointRoute,
+} from '../utils/pointToPointRouting'
+import {
   formatNumber,
   getLocalizedOsmName,
   getRouteLabels,
@@ -46,6 +53,10 @@ import {
   type InfrastructureType,
 } from '../utils/infrastructure'
 import { InfrastructureFilters } from './InfrastructureFilters'
+import {
+  PointRoutePlanner,
+  type PointRoutePlanningStage,
+} from './PointRoutePlanner'
 import { RoutesPanel } from './RoutesPanel'
 
 interface BikeMapProps {
@@ -174,6 +185,15 @@ export function BikeMap({
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle')
   const [locationErrorKey, setLocationErrorKey] = useState<string | null>(null)
   const [locationFocusRequest, setLocationFocusRequest] = useState(0)
+  const [planningStage, setPlanningStage] =
+    useState<PointRoutePlanningStage>('inactive')
+  const [plannedStart, setPlannedStart] = useState<NetworkSnap | null>(null)
+  const [plannedEnd, setPlannedEnd] = useState<NetworkSnap | null>(null)
+  const [pointToPointRoute, setPointToPointRoute] =
+    useState<PointToPointRoute | null>(null)
+  const [pointRouteErrorKey, setPointRouteErrorKey] = useState<string | null>(
+    null,
+  )
   const routableInfrastructureTypes = useMemo(
     () =>
       activeTypes.filter(
@@ -199,6 +219,10 @@ export function BikeMap({
       routeFilters.roundTrip,
       routableInfrastructureTypes,
     ],
+  )
+  const bikeNetwork = useMemo(
+    () => buildBikeNetwork(data, routableInfrastructureTypes),
+    [data, routableInfrastructureTypes],
   )
   const amenitiesByRoute = useMemo(
     () =>
@@ -285,6 +309,73 @@ export function BikeMap({
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 10_000 },
     )
   }
+  const activatePointRoutePlanning = () => {
+    onClearRoute()
+    setPlannedStart(null)
+    setPlannedEnd(null)
+    setPointToPointRoute(null)
+    setPointRouteErrorKey(null)
+    setPlanningStage('start')
+  }
+  const cancelPointRoutePlanning = () => {
+    setPlanningStage('inactive')
+    setPlannedStart(null)
+    setPlannedEnd(null)
+    setPointToPointRoute(null)
+    setPointRouteErrorKey(null)
+  }
+  const startPointRouteOver = () => {
+    setPlannedStart(null)
+    setPlannedEnd(null)
+    setPointToPointRoute(null)
+    setPointRouteErrorKey(null)
+    setPlanningStage('start')
+  }
+  const selectPointRouteCoordinate = useCallback(
+    (coordinate: [number, number]) => {
+      if (planningStage !== 'start' && planningStage !== 'end') return
+      const snap = snapToBikeNetwork(bikeNetwork, coordinate)
+      if (!snap) {
+        setPointRouteErrorKey(
+          bikeNetwork.nodes.length === 0
+            ? 'pointRoute.noInfrastructure'
+            : 'pointRoute.pointTooFar',
+        )
+        return
+      }
+
+      if (planningStage === 'start') {
+        setPlannedStart(snap)
+        setPlannedEnd(null)
+        setPointToPointRoute(null)
+        setPointRouteErrorKey(null)
+        setPlanningStage('end')
+        return
+      }
+
+      if (!plannedStart) {
+        setPlanningStage('start')
+        return
+      }
+      const route = findShortestBikePath(
+        bikeNetwork,
+        plannedStart.nodeId,
+        snap.nodeId,
+      )
+      if (!route || route.distanceKm < 0.01) {
+        setPointRouteErrorKey(
+          route ? 'pointRoute.pointsTooClose' : 'pointRoute.noConnectedRoute',
+        )
+        return
+      }
+
+      setPlannedEnd(snap)
+      setPointToPointRoute(route)
+      setPointRouteErrorKey(null)
+      setPlanningStage('complete')
+    },
+    [bikeNetwork, plannedStart, planningStage],
+  )
 
   useEffect(() => {
     if (
@@ -298,7 +389,11 @@ export function BikeMap({
   return (
     <section
       aria-label={t('map.ariaLabel')}
-      className="relative isolate z-0 min-h-0 w-full flex-1 overflow-hidden bg-stone-200 dark:bg-slate-900"
+      className={`relative isolate z-0 min-h-0 w-full flex-1 overflow-hidden bg-stone-200 dark:bg-slate-900 ${
+        planningStage === 'start' || planningStage === 'end'
+          ? 'route-point-selection'
+          : ''
+      }`}
     >
       <MapContainer
         center={MAP_CENTER}
@@ -325,14 +420,18 @@ export function BikeMap({
           pointToLayer={createAmenityMarker}
           style={getPathStyle}
         />
-        {orderedRoutes.map((route) => {
+        {(planningStage === 'inactive' ? orderedRoutes : []).map((route) => {
           const isSelected = route.id === selectedRoute?.id
           const labels = getRouteLabels(route, t)
 
           return (
             <Polyline
               key={route.id}
-              eventHandlers={{ click: () => onSelectRoute(route) }}
+              eventHandlers={
+                planningStage === 'inactive'
+                  ? { click: () => onSelectRoute(route) }
+                  : undefined
+              }
               pathOptions={{
                 color: isSelected ? '#7c3aed' : '#334155',
                 dashArray: isSelected ? undefined : '8 7',
@@ -392,6 +491,52 @@ export function BikeMap({
             )}
           </>
         )}
+        {pointToPointRoute && (
+          <Polyline
+            pathOptions={{
+              color: '#e11d48',
+              opacity: 1,
+              weight: 7,
+            }}
+            positions={pointToPointRoute.coordinates}
+          >
+            <Tooltip direction="top" sticky>
+              <strong>{t('pointRoute.yourRoute')}</strong>
+              <br />
+              {t('units.kilometers', {
+                value: formatNumber(pointToPointRoute.distanceKm, language),
+              })}
+            </Tooltip>
+          </Polyline>
+        )}
+        {plannedStart && (
+          <CircleMarker
+            center={plannedStart.coordinate}
+            pathOptions={{
+              color: '#ffffff',
+              fillColor: '#059669',
+              fillOpacity: 1,
+              weight: 3,
+            }}
+            radius={9}
+          >
+            <Tooltip direction="top">{t('pointRoute.start')}</Tooltip>
+          </CircleMarker>
+        )}
+        {plannedEnd && (
+          <CircleMarker
+            center={plannedEnd.coordinate}
+            pathOptions={{
+              color: '#ffffff',
+              fillColor: '#e11d48',
+              fillOpacity: 1,
+              weight: 3,
+            }}
+            radius={9}
+          >
+            <Tooltip direction="top">{t('pointRoute.destination')}</Tooltip>
+          </CircleMarker>
+        )}
         {currentLocation && (
           <>
             <Circle
@@ -435,6 +580,11 @@ export function BikeMap({
           focusRequest={locationFocusRequest}
           location={currentLocation}
         />
+        <PointRouteViewportController route={pointToPointRoute} />
+        <PointSelectionHandler
+          enabled={planningStage === 'start' || planningStage === 'end'}
+          onSelect={selectPointRouteCoordinate}
+        />
         <ViewportRouteTracker
           routes={filteredRoutes}
           onVisibleRoutesChange={updateVisibleRoutes}
@@ -473,25 +623,38 @@ export function BikeMap({
         {locationStatus === 'ready' ? t('map.locationFound') : ''}
       </p>
 
-      <InfrastructureFilters
-        activeTypes={activeTypes}
-        counts={infrastructureCounts}
-        onToggle={toggleInfrastructureType}
+      <PointRoutePlanner
+        distanceKm={pointToPointRoute?.distanceKm ?? null}
+        errorKey={pointRouteErrorKey}
+        stage={planningStage}
+        onActivate={activatePointRoutePlanning}
+        onCancel={cancelPointRoutePlanning}
+        onStartOver={startPointRouteOver}
       />
 
-      <RoutesPanel
-        amenitiesByRoute={amenitiesByRoute}
-        filters={routeFilters}
-        isCollapsed={isRoutesPanelCollapsed}
-        routes={visibleRoutes}
-        totalRouteCount={filteredRoutes.length}
-        unfilteredRouteCount={routes.length}
-        selectedRoute={selectedRoute}
-        onClearRoute={onClearRoute}
-        onFiltersChange={onRouteFiltersChange}
-        onSelectRoute={onSelectRoute}
-        onToggle={onToggleRoutesPanel}
-      />
+      {planningStage === 'inactive' && (
+        <>
+          <InfrastructureFilters
+            activeTypes={activeTypes}
+            counts={infrastructureCounts}
+            onToggle={toggleInfrastructureType}
+          />
+
+          <RoutesPanel
+            amenitiesByRoute={amenitiesByRoute}
+            filters={routeFilters}
+            isCollapsed={isRoutesPanelCollapsed}
+            routes={visibleRoutes}
+            totalRouteCount={filteredRoutes.length}
+            unfilteredRouteCount={routes.length}
+            selectedRoute={selectedRoute}
+            onClearRoute={onClearRoute}
+            onFiltersChange={onRouteFiltersChange}
+            onSelectRoute={onSelectRoute}
+            onToggle={onToggleRoutesPanel}
+          />
+        </>
+      )}
     </section>
   )
 }
@@ -512,6 +675,41 @@ function CurrentLocationViewportController({
     })
   }, [focusRequest, location, map])
 
+  return null
+}
+
+function PointRouteViewportController({
+  route,
+}: {
+  route: PointToPointRoute | null
+}) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!route || route.coordinates.length < 2) return
+    map.fitBounds(latLngBounds(route.coordinates), {
+      animate: true,
+      maxZoom: 17,
+      padding: [48, 48],
+      paddingTopLeft: [48, 140],
+    })
+  }, [map, route])
+
+  return null
+}
+
+function PointSelectionHandler({
+  enabled,
+  onSelect,
+}: {
+  enabled: boolean
+  onSelect: (coordinate: [number, number]) => void
+}) {
+  useMapEvents({
+    click: (event) => {
+      if (enabled) onSelect([event.latlng.lat, event.latlng.lng])
+    },
+  })
   return null
 }
 

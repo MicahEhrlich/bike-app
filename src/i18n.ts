@@ -50,6 +50,26 @@ const resources = {
         finish: 'Finish: {{point}}',
         startAndFinish: 'Start & finish',
       },
+      pointRoute: {
+        plannerLabel: 'Point-to-point route planner',
+        planRoute: 'Plan a route',
+        chooseStart: 'Choose your starting point on the map',
+        chooseEnd: 'Now choose your destination',
+        snapHelp: 'Your selection will snap to the nearest available bike path.',
+        routeReady: 'Your route is ready · {{distance}}',
+        startOver: 'Start over',
+        closePlanner: 'Close route planner',
+        start: 'Start',
+        destination: 'Destination',
+        yourRoute: 'Your bike route',
+        noInfrastructure:
+          'Turn on at least one bike infrastructure layer before choosing a point.',
+        pointTooFar:
+          'Choose a point closer to an available bike path (within 300 m).',
+        noConnectedRoute:
+          'These points are not connected by the available bike paths. Try another destination.',
+        pointsTooClose: 'Choose a destination farther from the starting point.',
+      },
       layers: {
         title: 'Map layers',
         filterLabel: 'Filter infrastructure types',
@@ -231,6 +251,26 @@ const resources = {
         start: 'התחלה: {{point}}',
         finish: 'סיום: {{point}}',
         startAndFinish: 'התחלה וסיום',
+      },
+      pointRoute: {
+        plannerLabel: 'מתכנן מסלול מנקודה לנקודה',
+        planRoute: 'תכנון מסלול',
+        chooseStart: 'בחרו נקודת התחלה על המפה',
+        chooseEnd: 'עכשיו בחרו יעד',
+        snapHelp: 'הבחירה תוצמד לשביל האופניים הזמין הקרוב ביותר.',
+        routeReady: 'המסלול מוכן · {{distance}}',
+        startOver: 'התחלה מחדש',
+        closePlanner: 'סגירת מתכנן המסלול',
+        start: 'התחלה',
+        destination: 'יעד',
+        yourRoute: 'מסלול האופניים שלך',
+        noInfrastructure:
+          'יש להפעיל לפחות שכבת תשתית אופניים אחת לפני בחירת נקודה.',
+        pointTooFar:
+          'יש לבחור נקודה קרובה יותר לשביל אופניים זמין (עד 300 מ׳).',
+        noConnectedRoute:
+          'אין חיבור בין הנקודות דרך שבילי האופניים הזמינים. כדאי לבחור יעד אחר.',
+        pointsTooClose: 'יש לבחור יעד רחוק יותר מנקודת ההתחלה.',
       },
       layers: {
         title: 'שכבות מפה',

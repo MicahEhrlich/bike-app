@@ -118,6 +118,10 @@ button {
   font-family: var(--font-sans);
 }
 
+.route-point-selection .leaflet-container {
+  cursor: crosshair;
+}
+
 .dark .leaflet-container {
   background: #0f172a;
 }
